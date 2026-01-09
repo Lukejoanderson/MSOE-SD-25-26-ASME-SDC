@@ -2,19 +2,34 @@
 #include <SoftwareSerial.h>
 #include <WiFi.h>
 
+#define WifiName "MSOE-ASME-BOT"
+#define Pword "123456789"
+
 // put function declarations and global variables here:
 
 WiFiServer server(80);
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
-  Serial.write("Hello World");
-  WiFi.softAP("MSOE-ASME-BOT","123456789");
+  Serial.println("Hello World");
+  WiFi.softAP(WifiName,Pword);
   server.begin();
+  Serial.println(WiFi.localIP());
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  WiFiClient client=server.available();
+  
+  if (client.available())
+  {
+    int bytes=client.available();
+    char message[bytes];
+    for (int i=0;i<bytes;i++)
+    {
+      message[i]=client.read();
+    }
+    Serial.write(message);
+  }
 }
 
 // put function (and class) definitions here:
