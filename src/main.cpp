@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 #include <WiFi.h>
+#include <string.h>
+#include <SPIFFS.h>
 
 #define WifiName "MSOE-ASME-BOT"
 #define Pword "123456789"
@@ -21,6 +23,7 @@ void setup() {
   WiFi.softAP(WifiName,Pword);
   server.begin();
   Serial.println(WiFi.softAPIP());
+  SPIFFS.begin();
 }
 
 void loop() {
@@ -34,11 +37,19 @@ void loop() {
       message[i]=client.read();
     }
     Serial.write(message);
+    File page = SPIFFS.open("/page.html");
     client.println("HTTP/1.1 200 OK");
     client.println("Content-type:text/html");
     client.println("Connection: close");
     client.println();
-    client.println("<!DOCTYPE html><html><body><h1>Hi</h1></body></html>");
+    bytes=page.available();
+    for (int i=0;i<bytes;i++)
+    {
+      char val=page.read();
+      client.print(val);
+      Serial.print(val);
+    }
+    client.println();
     client.println();
   }
 }
