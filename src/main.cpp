@@ -3,6 +3,9 @@
 #include <WiFi.h>
 #include <string.h>
 #include <SPIFFS.h>
+#include <AsyncTCP.h>
+#include <WiFiServer.h>
+#include <ESPAsyncWebServer.h>
 
 #define WifiName "MSOE-ASME-BOT"
 #define Pword "123456789"
@@ -12,46 +15,39 @@
 IPAddress local_IP(1,2,3,4);
 IPAddress gateway(192,168,4,9);
 IPAddress subnet(255,255,255,0);
-
-WiFiServer server(80);
+AsyncWebServer server(80);
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
   Serial.println("Hello World");
-  WiFi.softAPConfig(local_IP,gateway,subnet);
+  
+  //WiFi.softAPConfig(local_IP,gateway,subnet);
   WiFi.softAP(WifiName,Pword);
-  server.begin();
+
   Serial.println(WiFi.softAPIP());
+  
   SPIFFS.begin();
+
+  //Server stuff
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+  request->send(SPIFFS,"/page.html", "text/html");
+  });
+
+  server.onNotFound([](AsyncWebServerRequest *request){
+    request->send(404);
+  });
+
+  server.begin();
 }
 
+
+
+
+
 void loop() {
-  WiFiClient client=server.available();
-  if (client.available())
-  {
-    int bytes=client.available();
-    char message[bytes];
-    for (int i=0;i<bytes;i++)
-    {
-      message[i]=client.read();
-    }
-    Serial.write(message);
-    File page = SPIFFS.open("/page.html");
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-type:text/html");
-    client.println("Connection: close");
-    client.println();
-    bytes=page.available();
-    for (int i=0;i<bytes;i++)
-    {
-      char val=page.read();
-      client.print(val);
-      Serial.print(val);
-    }
-    client.println();
-    client.println();
-  }
+  delay(100);
 }
 
 // put function (and class) definitions here:
