@@ -12,10 +12,42 @@
 
 // put function declarations and global variables here:
 
-IPAddress local_IP(1,2,3,4);
+/*IPAddress local_IP(1,2,3,4);
 IPAddress gateway(192,168,4,9);
-IPAddress subnet(255,255,255,0);
+IPAddress subnet(255,255,255,0);*/
 AsyncWebServer server(80);
+
+static AsyncWebSocketMessageHandler wsHand;
+static AsyncWebSocket ws("/ws",wsHand.eventHandler());
+
+
+
+class Bot
+{
+  private:
+  const int boardLed=13;
+  bool boardLedOn=false;
+  public:
+  void toggleLed()
+  {
+    if (boardLedOn)
+    {
+      digitalWrite(boardLed,LOW);
+      boardLedOn=false;
+    }
+    else
+    {
+      digitalWrite(boardLed,HIGH);
+      boardLedOn=true;
+    }
+  }
+  Bot()
+  {
+    pinMode(boardLed,OUTPUT);
+  }
+};
+
+Bot trashBot;
 
 void setup() {
   // put your setup code here, to run once:
@@ -32,13 +64,33 @@ void setup() {
   //Server stuff
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
   {
-  request->send(SPIFFS,"/page.html", "text/html");
+    request->send(SPIFFS,"/page.html","text/html");
+  });
+
+  server.on("/css.css", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+    request->send(SPIFFS,"/css.css");
+  });
+
+  server.on("/js.js", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+    request->send(SPIFFS,"/js.js");
   });
 
   server.onNotFound([](AsyncWebServerRequest *request){
     request->send(404);
   });
 
+  //websocket server stuff
+  wsHand.onConnect([](AsyncWebSocket *server, AsyncWebSocketClient *client) {
+    Serial.println("WS connected");
+  });
+
+    wsHand.onMessage([](AsyncWebSocket *server, AsyncWebSocketClient *client, const uint8_t *data, size_t len) {
+      trashBot.toggleLed();
+  });
+
+  server.addHandler(&ws);
   server.begin();
 }
 
@@ -47,7 +99,8 @@ void setup() {
 
 
 void loop() {
-  delay(100);
+  ws.cleanupClients();
 }
 
-// put function (and class) definitions here:
+// put function definitions here:
+
