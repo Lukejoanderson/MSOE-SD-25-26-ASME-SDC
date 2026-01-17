@@ -54,7 +54,7 @@ void setup() {
   Serial.begin(115200); //for debug
   Serial.println("Hello World");
   
-  //WiFi.softAPConfig(local_IP,gateway,subnet);
+  //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
 
   Serial.println(WiFi.softAPIP());
