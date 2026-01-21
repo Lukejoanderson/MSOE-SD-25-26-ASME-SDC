@@ -1,11 +1,11 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 #include <WiFi.h>
-#include <string.h>
 #include <SPIFFS.h>
 #include <AsyncTCP.h>
 #include <WiFiServer.h>
 #include <ESPAsyncWebServer.h>
+#include <vector>
 
 #define WifiName "MSOE-ASME-BOT"
 #define Pword "123456789"
@@ -19,7 +19,6 @@ AsyncWebServer server(80);
 
 static AsyncWebSocketMessageHandler wsHand;
 static AsyncWebSocket ws("/ws",wsHand.eventHandler());
-
 
 
 class Bot
@@ -41,6 +40,11 @@ class Bot
       boardLedOn=true;
     }
   }
+  void dimLeg(float percent)
+  {
+    analogWrite(boardLed, int(255*percent));
+    boardLedOn=true;
+  }
   Bot()
   {
     pinMode(boardLed,OUTPUT);
@@ -48,7 +52,6 @@ class Bot
 };
 
 Bot trashBot;
-
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
@@ -84,10 +87,34 @@ void setup() {
   //websocket server stuff
   wsHand.onConnect([](AsyncWebSocket *server, AsyncWebSocketClient *client) {
     Serial.println("WS connected");
+    ws.textAll("ready");
   });
 
     wsHand.onMessage([](AsyncWebSocket *server, AsyncWebSocketClient *client, const uint8_t *data, size_t len) {
-      trashBot.toggleLed();
+      String msg = String((char *)data);
+      //Serial.println(msg);
+      int length=msg.length();
+      int prevSub=-1;
+      int dataSeg=0; //which section of sent data is being handled. 0-forwards/backwards 1-left/right 2-arm angle 3-arm dist 4-arm height
+      for (int i=0; i<length; i++)
+      {
+          if (msg.charAt(i)==',')
+          {
+            String sub=msg.substring(prevSub+1,i);
+            prevSub=i;
+            switch (dataSeg)
+            {
+              case 4:
+                trashBot.dimLeg(sub.toFloat());
+              break;
+              default:
+              break;
+            }
+            dataSeg++;
+            //Serial.println(sub);
+          }
+      }
+      ws.textAll("ready");
   });
 
   server.addHandler(&ws);
@@ -100,6 +127,8 @@ void setup() {
 
 void loop() {
   ws.cleanupClients();
+  delay(1000);
+  //probably should do some more smart stuff here (proper timer stuff), this is probably where the sorting code is going to go. Also maybe if we need to do motion smoothing for the arm servos.
 }
 
 // put function definitions here:

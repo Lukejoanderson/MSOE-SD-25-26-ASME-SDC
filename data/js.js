@@ -36,6 +36,7 @@ function onLoad(event)
     canvas.height=height;
     cur=canvas.getContext("2d");
     drawStart();
+    websocket.addEventListener("message",respond)
 }
 
 
@@ -310,4 +311,17 @@ function rad2deg(rad)
 function clamp(num, lower, upper)
 {
     return Math.min(Math.max(num, lower), upper);
+}
+
+function respond(event)
+{
+    switch (event.data)
+    {
+        case "ready":
+            websocket.send(joyPos[0]+","+joyPos[1]+","+armPos[0]+","+armPos[1]+","+slidePos+",");
+            break;
+        default:
+            console.log("unknown comm");
+            break;
+    }
 }
