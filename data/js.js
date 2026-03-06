@@ -16,6 +16,14 @@ var arcCenter;
 var circRad;
 var arcRad;
 var touchMap= new Map();
+var ButtW;
+var ButtH;
+var butt1=false;
+var butt2=false;
+var butt3=false;
+var butt4=false;
+var butt5=false;
+var butt6=false;
 
 window.addEventListener("load",onLoad);
 document.addEventListener("fullscreenchange",swap);
@@ -73,12 +81,12 @@ function drawBackground()
     circZone=.45*height;
     slideZone=.1*height;
     armZone=.45*height;
-
     circCenter=[width/2,circZone/2];
     circRad=circZone/2;
     arcCenter=[width/2,height-armZone/2];
     arcRad=armZone/2;
-
+    ButtW=armZone/3;
+    ButtH=width/4;
     cur.beginPath();
     cur.arc(circCenter[0],circCenter[1],circRad,0,2*Math.PI);
     cur.moveTo(width/2,height);
@@ -113,6 +121,7 @@ function handStart(event)
             var pos=[touch.clientX,touch.clientY];
             var zone=getZone(pos);
             touchMap.set(touch.identifier,zone);
+            console.log(zone);
             switch (zone)
             {
                 case "circ":
@@ -145,11 +154,49 @@ function handEnd(event)
         for (var i=0; i<event.changedTouches.length; i++)
         {
             var touch=event.changedTouches[i];
+            var pos=[touch.clientX,touch.clientY];
             var zone=touchMap.get(touch.identifier);
+            var endzone=getZone(pos);
             switch (zone)
             {
             case "circ":
                 joyPos=[0,0];
+                break;
+            case "butt1":
+                if(zone==endzone)
+                {
+                    butt1=!butt1;
+                }
+                break;
+            case "butt2":
+                if(zone==endzone)
+                {
+                    butt2=!butt2;
+                }
+                break;
+            case "butt3":
+                if(zone==endzone)
+                {
+                    butt3=!butt3;
+                }
+                break;
+            case "butt4":
+                if(zone==endzone)
+                {
+                    butt4=!butt4;
+                }
+                break;
+            case "butt5":
+                if(zone==endzone)
+                {
+                    butt5=!butt5;
+                }
+                break;
+            case "butt6":
+                if(zone==endzone)
+                {
+                    butt6=!butt6;
+                }
                 break;
             default:
                 break;
@@ -195,6 +242,7 @@ function setupDrawing()
 {
      cur.fillStyle = "white";
     cur.strokeStyle="white";
+    cur.lineWidth=3;
 }
 
 function drawDisplay()
@@ -210,8 +258,68 @@ function drawDisplay()
     cur.beginPath();
     cur.rect(slidePos*width-slideZone/4,circZone,slideZone/2,slideZone);
     cur.fill();
-    cur.stroke();
+    //this is dumb
+    cur.beginPath();
+    cur.rect(1,circZone+slideZone,ButtH,ButtW);
+    if(butt1)
+    {
+        cur.fill();
+    }
+    else
+    {
+        cur.stroke()
+    }
 
+    cur.beginPath();
+    cur.rect(1,circZone+slideZone+ButtW,ButtH,ButtW);
+    if(butt2)
+    {
+        cur.fill();
+    }
+    else
+    {
+        cur.stroke()
+    }
+    cur.beginPath();
+    cur.rect(1,circZone+slideZone+2*ButtW,ButtH,ButtW);
+    if(butt3)
+    {
+        cur.fill();
+    }
+    else
+    {
+        cur.stroke()
+    }
+    cur.beginPath();
+    cur.rect(ButtH,circZone+slideZone,ButtH,ButtW);
+    if(butt4)
+    {
+        cur.fill();
+    }
+    else
+    {
+        cur.stroke()
+    }
+    cur.beginPath();
+    cur.rect(ButtH,circZone+slideZone+ButtW,ButtH,ButtW);
+        if(butt5)
+    {
+        cur.fill();
+    }
+    else
+    {
+        cur.stroke()
+    }
+    cur.beginPath();
+    cur.rect(ButtH,circZone+slideZone+2*ButtW,ButtH,ButtW);
+    if(butt6)
+    {
+        cur.fill();
+    }
+    else
+    {
+        cur.stroke()
+    }
 }
 
 function deg2rad(deg)
@@ -231,6 +339,30 @@ function getZone(pos)
     else if (pos[1]>=circZone&&pos[1]<=circZone+slideZone)
     {
         return "slide"
+    }
+    else if (pos[0]<ButtH&&pos[1]>circZone+slideZone&&pos[1]<circZone+slideZone+ButtW)
+    {
+        return "butt1"
+    }
+        else if (pos[0]<ButtH&&pos[1]>circZone+slideZone+ButtW&&pos[1]<circZone+slideZone+2*ButtW)
+    {
+        return "butt2"
+    }
+            else if (pos[0]<ButtH&&pos[1]>circZone+slideZone+2*ButtW)
+    {
+        return "butt3"
+    }
+        else if (pos[0]>ButtH&&pos[0]<2*ButtH&&pos[1]>circZone+slideZone&&pos[1]<circZone+slideZone+ButtW)
+    {
+        return "butt4"
+    }
+        else if (pos[0]>ButtH&&pos[0]<2*ButtH&&pos[1]>circZone+slideZone+ButtW&&pos[1]<circZone+slideZone+2*ButtW)
+    {
+        return "butt5"
+    }
+            else if (pos[0]>ButtH&&pos[0]<2*ButtH&&pos[1]>circZone+slideZone+2*ButtW)
+    {
+        return "butt6"
     }
     else 
     {
@@ -318,7 +450,7 @@ function respond(event)
     switch (event.data)
     {
         case "ready":
-            websocket.send(joyPos[0]+","+joyPos[1]+","+armPos[0]+","+armPos[1]+","+slidePos+",");
+            websocket.send(joyPos[0]+","+joyPos[1]+","+armPos[0]+","+armPos[1]+","+slidePos+","+Number(butt1)+","+Number(butt2)+","+Number(butt3)+","+Number(butt4)+","+Number(butt5)+","+Number(butt6));
             break;
         default:
             console.log("unknown comm");
