@@ -121,7 +121,6 @@ function handStart(event)
             var pos=[touch.clientX,touch.clientY];
             var zone=getZone(pos);
             touchMap.set(touch.identifier,zone);
-            console.log(zone);
             switch (zone)
             {
                 case "circ":
