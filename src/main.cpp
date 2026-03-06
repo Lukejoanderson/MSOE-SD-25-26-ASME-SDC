@@ -20,6 +20,75 @@ AsyncWebServer server(80);
 static AsyncWebSocketMessageHandler wsHand;
 static AsyncWebSocket ws("/ws",wsHand.eventHandler());
 
+class motor
+{
+  private:
+  int throttlePin;
+  int dirPin;
+  bool rev;
+  public:
+  motor(){}//this should be fine...
+  motor(int pinThrottle, int pinDir, bool reverse)
+  {
+    throttlePin=pinThrottle;
+    dirPin=pinDir;
+    rev=reverse;
+    pinMode(throttlePin,OUTPUT);
+    pinMode(dirPin,OUTPUT);
+  }
+  void write(float speed,bool forward)
+  {
+    if (!rev)
+    {
+      digitalWrite(dirPin,forward);
+    }
+    else
+    {
+      digitalWrite(dirPin,!forward);
+    }
+    analogWrite(throttlePin,255*speed);
+  }
+  
+};
+
+class stearing
+{
+  private:
+  motor motorL;
+  motor motorR;
+  public:
+  stearing(motor motL, motor motR)
+  {
+    motorL=motL;
+    motorR=motR;
+  }
+  void control(float x,float y)
+  {
+    double ang = atan2(abs(y),abs(x));
+    float speed=sqrt(x*x+y*y);
+    if (x>0&&y>0)
+    {
+      motorL.write(speed,true);
+      motorR.write(speed*(ang/PI),true);
+    }
+    else if (y>0&&x<0)
+    {
+      motorL.write(speed*ang/PI,true);
+      motorR.write(speed,true);
+    }
+    else if (y<0&&x<0)
+    {
+      motorL.write(speed*ang/PI,false);
+      motorR.write(speed,false);
+    }
+    else if (y<0&&x>0)
+    {
+      motorL.write(speed,false);
+      motorR.write(speed*(ang/PI),false);
+    }
+
+  }
+};
 
 class Bot
 {
