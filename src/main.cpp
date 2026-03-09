@@ -20,15 +20,15 @@ AsyncWebServer server(80);
 static AsyncWebSocketMessageHandler wsHand;
 static AsyncWebSocket ws("/ws",wsHand.eventHandler());
 
-class motor
+class Motor
 {
   private:
   int throttlePin;
   int dirPin;
   bool rev;
   public:
-  motor(){}//this should be fine...
-  motor(int pinThrottle, int pinDir, bool reverse)
+  Motor(){}//this should be fine...
+  Motor(int pinThrottle, int pinDir, bool reverse)
   {
     throttlePin=pinThrottle;
     dirPin=pinDir;
@@ -51,13 +51,13 @@ class motor
   
 };
 
-class stearing
+class Steering
 {
   private:
-  motor motorL;
-  motor motorR;
+  Motor motorL;
+  Motor motorR;
   public:
-  stearing(motor motL, motor motR)
+  Steering(Motor motL, Motor motR)
   {
     motorL=motL;
     motorR=motR;
@@ -120,9 +120,10 @@ class Bot
 };
 
 Bot trashBot;
-motor LeftMotor(14,32,true);
-motor RightMotor(15,33,false);
-stearing Drivebase(LeftMotor,RightMotor);
+Motor LeftMotor(14,32,true);
+Motor RightMotor(15,33,false);
+Steering Drivebase(LeftMotor,RightMotor);
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
