@@ -387,7 +387,6 @@ function handCirc(pos)
         {
             angle=angle+Math.PI;
         }
-        //console.log(angle);
         joyPos=[Math.cos(angle),Math.sin(angle)];
     }
 }

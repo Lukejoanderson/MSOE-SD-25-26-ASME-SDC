@@ -66,27 +66,26 @@ class stearing
   {
     double ang = atan2(abs(y),abs(x));
     float speed=sqrt(x*x+y*y);
-    if (x>0&&y>0)
+    if (x>=0&&y>=0)
     {
       motorL.write(speed,true);
       motorR.write(speed*(ang/PI),true);
     }
-    else if (y>0&&x<0)
+    else if (y>=0&&x<=0)
     {
       motorL.write(speed*ang/PI,true);
       motorR.write(speed,true);
     }
-    else if (y<0&&x<0)
+    else if (y<=0&&x<=0)
     {
       motorL.write(speed*ang/PI,false);
       motorR.write(speed,false);
     }
-    else if (y<0&&x>0)
+    else if (y<=0&&x>=0)
     {
       motorL.write(speed,false);
       motorR.write(speed*(ang/PI),false);
     }
-
   }
 };
 
@@ -121,6 +120,9 @@ class Bot
 };
 
 Bot trashBot;
+motor LeftMotor(14,32,true);
+motor RightMotor(15,33,false);
+stearing Drivebase(LeftMotor,RightMotor);
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
@@ -164,15 +166,22 @@ void setup() {
       //Serial.println(msg);
       int length=msg.length();
       int prevSub=-1;
-      int dataSeg=0; //which section of sent data is being handled. 0-forwards/backwards 1-left/right 2-arm angle 3-arm dist 4-arm height
+      int dataSeg=0; //which section of sent data is being handled. 0-forwards/backwards 1-left/right 2-arm angle 3-arm dist 4-arm height (Future probably: 5-11, buttons 1-6)
       for (int i=0; i<length; i++)
       {
           if (msg.charAt(i)==',')
           {
             String sub=msg.substring(prevSub+1,i);
             prevSub=i;
+            float forward;
             switch (dataSeg)
             {
+              case 0:
+                forward=sub.toFloat();
+                break;
+              case 1:
+                Drivebase.control(sub.toFloat(),forward);
+                break;
               case 4:
                 trashBot.dimLeg(sub.toFloat());
               break;
