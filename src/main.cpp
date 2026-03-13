@@ -6,6 +6,7 @@
 #include <WiFiServer.h>
 #include <ESPAsyncWebServer.h>
 #include <vector>
+#include "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h"
 
 #define WifiName "MSOE-ASME-BOT"
 #define Pword "123456789"
@@ -119,15 +120,83 @@ class Bot
   }
 };
 
+class Arm
+{
+  private:
+    // Placeholder pin numbers, need to be changed to actual pins
+    const int twistServoPin    = 0;
+    const int shoulderServoPin = 0;
+    const int elbowServoPin = 0;
+    const int wristServoPin = 0;
+    const int gripperServoPin = 0;
+
+    // Servo limits in degrees. Still need to fix some and ensure bot is on these
+    const int twistServoMin = -90;
+    const int twistServoMax =  90;
+    const int shoulderServoMin = -30;
+    const int shoulderServoMax = 150;
+    const int elbowServoMin = -30;
+    const int elbowServoMax = 150;
+    const int wristServoMin = -90;
+    const int wristServoMax =  90;
+
+    NAU7802 loadcell;
+
+  public:
+  Arm(){}
+  void setup(){
+    // Load Cell setup
+    Serial.println("Waiting for Load Cell!");
+    while (!loadcell.begin()) {Serial.print("."); delay(100);}
+    Serial.println(); Serial.println("Load Cell Connected!");
+
+    loadcell.setSampleRate(10);
+    loadcell.setGain(128);
+    loadcell.calibrateAFE();
+    delay(500);
+    loadcell.calculateZeroOffset(50);
+  }
+
+  void readForce(){
+    int32_t reading = loadcell.getReading() - loadcell.getZeroOffset();
+    Serial.print("Reading: ");
+    Serial.print(reading);
+  }
+
+
+  // Initialize servos and strain gauge here
+  // twistServo.attach(twistServoPin);
+  // shoulderServo.attach(shoulderServoPin);
+  // elbowServo.attach(elbowServoPin);
+  // wristServo.attach(wristServoPin);
+  // gripperServo.attach(gripperServoPin);
+
+  // Need to set up strain gauge pin as input and calibrate it
+
+  // Commands needed:
+  // 1. Set twist angle
+  // 2. Move out or in
+  // 3. Move up or down
+  // 4. Open or close gripper
+  // 5. Bring arm to dump position
+  // 6. Dump
+  // 7. Bring arm to some average pickup position (or the last pickup spot?)
+  // 8. ??
+
+};
+
 Bot trashBot;
 Motor LeftMotor(14,32,true);
 Motor RightMotor(15,33,false);
 Steering Drivebase(LeftMotor,RightMotor);
+Arm trashArm;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
   Serial.println("Hello World");
+  Wire.begin();
+  trashArm.setup();
   
   //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
@@ -208,6 +277,7 @@ void loop() {
   ws.cleanupClients();
   delay(1000);
   //probably should do some more smart stuff here (proper timer stuff), this is probably where the sorting code is going to go. Also maybe if we need to do motion smoothing for the arm servos.
+  trashArm.readForce();
 }
 
 // put function definitions here:
