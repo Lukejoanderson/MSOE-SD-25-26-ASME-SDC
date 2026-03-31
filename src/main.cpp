@@ -121,7 +121,7 @@ class Bot
 
 Bot trashBot;
 Motor LeftMotor(14,32,true);
-Motor RightMotor(15,33,false);
+Motor RightMotor(15,33,true);
 Steering Drivebase(LeftMotor,RightMotor);
 
 void setup() {
