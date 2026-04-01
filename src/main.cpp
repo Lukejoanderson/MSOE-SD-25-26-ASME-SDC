@@ -6,9 +6,14 @@
 #include <WiFiServer.h>
 #include <ESPAsyncWebServer.h>
 #include <vector>
-
+#include <Adafruit_APDS9960.h>
+#include <ESP32Servo.h>
 #define WifiName "MSOE-ASME-BOT"
 #define Pword "123456789"
+
+Adafruit_APDS9960 apds;
+void reorgRGB(int rgb[]);
+void RGB2HSV(int rgb[], double hsv[]);
 
 // put function declarations and global variables here:
 
@@ -88,6 +93,13 @@ class Steering
     }
   }
 };
+
+class sorter
+{
+  public:
+  bool active=false;
+};
+
 
 class Bot
 {
@@ -212,3 +224,52 @@ void loop() {
 
 // put function definitions here:
 
+void reorgRGB(int rgb[])
+ {
+    rgb[0]=rgb[0]*5.0604+9.7535;
+    rgb[0]=min(max(rgb[0],0),255);
+    rgb[1]=rgb[1]*2.8581+36.832;
+    rgb[1]=min(max(rgb[1],0),255);
+    rgb[2]=rgb[2]*4.733-23.635;
+    rgb[2]=min(max(rgb[2],0),255);
+}
+
+void RGB2HSV(int rgb[], double hsv[])
+{
+  //https://math.stackexchange.com/questions/556341/rgb-to-hsv-color-conversion-algorithm
+  double R=rgb[0];
+  double G=rgb[1];
+  double B=rgb[2];
+  R=R/255;
+  G=G/255;
+  B=B/255;
+  double cmax=max(max(R,G),B);
+  double cmin=min(min(R,G),B);
+  double delta=cmax-cmin;
+  if (R==G&&R==B)
+  {
+    hsv[0]=0;
+  }
+  else if (cmax==R)
+  {
+    hsv[0]=60*fmod((G-B)/delta,6);//main idea here is to turn negatives into positives that are at 300+ plus degrees, not really readable but whatever
+  }
+  else if (cmax==G)
+  {
+    hsv[0]=60*((B-R)/delta+2);
+  }
+  else
+  {
+    hsv[0]=60*((R-G)/delta+4);
+  }
+  if (cmax==0)
+  {
+    hsv[1]=0;
+  }
+  else
+  {
+    hsv[1]=delta/cmax;
+  }
+  hsv[2]=cmax;
+  
+}
