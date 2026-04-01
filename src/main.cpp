@@ -167,7 +167,7 @@ void setup() {
       //Serial.println(msg);
       int length=msg.length();
       int prevSub=-1;
-      int dataSeg=0; //which section of sent data is being handled. 0-forwards/backwards 1-left/right 2-arm angle 3-arm dist 4-arm height (Future probably: 5-11, buttons 1-6)
+      int dataSeg=0; //which section of sent data is being handled. 0-forwards/backwards 1-left/right 2-arm angle(unused) 3-arm dist(unused) 4-arm height(unused) 5-23, buttons 1-12(buttons 1-6 are toggle, 7-12 are held)
       for (int i=0; i<length; i++)
       {
           if (msg.charAt(i)==',')
