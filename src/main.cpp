@@ -6,9 +6,14 @@
 #include <WiFiServer.h>
 #include <ESPAsyncWebServer.h>
 #include <vector>
-
+#include <Adafruit_APDS9960.h>
+#include <ESP32Servo.h>
 #define WifiName "MSOE-ASME-BOT"
 #define Pword "123456789"
+
+Adafruit_APDS9960 apds;
+void reorgRGB(int rgb[]);
+void RGB2HSV(int rgb[], double hsv[]);
 
 // put function declarations and global variables here:
 
@@ -88,6 +93,98 @@ class Steering
     }
   }
 };
+class timer
+{
+  private:
+    unsigned long int starttime;
+  public:
+  void start()
+  {
+    starttime=millis();
+  }
+  unsigned long int gettime()
+  {
+    return millis()-starttime;
+  }
+};
+class sorter
+{
+  public:
+  bool active=false;
+  bool overrideT=false;
+  bool overrideR=false;
+  timer delay;
+  Servo sortserv;
+  unsigned short int state=0;
+  sorter()
+  {
+    sortserv.attach(27);
+    sortserv.write(90);
+  }
+  void update()
+  {
+    if(active)
+    {
+      switch (state)
+      {
+      case 0:
+        if(apds.readProximity()>25)
+        {
+          state=1;
+          delay.start();
+        }
+        break;
+      case 1:
+        if(delay.gettime()>=250&&apds.readProximity()>25&&apds.colorDataReady())
+        {
+          uint16_t r, g, b, c;
+          apds.getColorData(&r, &g, &b, &c);
+          int RGB[3]={r,g,b};
+          reorgRGB(RGB);
+          double HSV[3];
+          RGB2HSV(RGB,HSV);
+          if (HSV[0]>=70&&HSV[0]<=260&&HSV[1]>.4&&HSV[2]>.3)
+          {
+            sortserv.write(130);
+          }
+          else
+          {
+            sortserv.write(55);
+          }
+          delay.start();
+          state=2;
+        }
+        break;
+      case 2:
+      if(delay.gettime()>500)
+      {
+        sortserv.write(90);
+        state=0;
+      }
+      break;
+      default:
+        break;
+      }
+    }
+    else
+    {
+      state=0;
+      if(overrideT)
+      {
+        sortserv.write(55);
+      }
+      else if (overrideR)
+      {
+        sortserv.write(130);
+      }
+      else
+      {
+        sortserv.write(90);
+      }
+    }
+  }
+};
+
 
 class Bot
 {
@@ -123,19 +220,21 @@ Bot trashBot;
 Motor LeftMotor(14,32,true);
 Motor RightMotor(15,33,true);
 Steering Drivebase(LeftMotor,RightMotor);
-
+sorter sort;
+timer looptime;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
   Serial.println("Hello World");
-  
+  apds.begin();
+  apds.enableColor();
+  apds.enableProximity();
   //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
 
   Serial.println(WiFi.softAPIP());
   
   SPIFFS.begin();
-
   //Server stuff
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
   {
@@ -186,6 +285,15 @@ void setup() {
               case 4:
                 trashBot.dimLeg(sub.toFloat());
               break;
+              case 5:
+                sort.active=sub.toInt();
+                break;
+              case 6:
+                sort.overrideR=sub.toInt();
+                break;
+              case 7:
+                sort.overrideT=sub.toInt();
+                break;
               default:
               break;
             }
@@ -198,17 +306,70 @@ void setup() {
 
   server.addHandler(&ws);
   server.begin();
-}
-
+  looptime.start();
+} 
 
 
 
 
 void loop() {
-  ws.cleanupClients();
-  delay(1000);
+  if (looptime.gettime()>=1000)
+  {
+    ws.cleanupClients();
+    looptime.start();
+  }
+  sort.update();
   //probably should do some more smart stuff here (proper timer stuff), this is probably where the sorting code is going to go. Also maybe if we need to do motion smoothing for the arm servos.
 }
 
 // put function definitions here:
 
+void reorgRGB(int rgb[])
+ {
+    rgb[0]=rgb[0]*5.0604+9.7535;
+    rgb[0]=min(max(rgb[0],0),255);
+    rgb[1]=rgb[1]*2.8581+36.832;
+    rgb[1]=min(max(rgb[1],0),255);
+    rgb[2]=rgb[2]*4.733-23.635;
+    rgb[2]=min(max(rgb[2],0),255);
+}
+
+void RGB2HSV(int rgb[], double hsv[])
+{
+  //https://math.stackexchange.com/questions/556341/rgb-to-hsv-color-conversion-algorithm
+  double R=rgb[0];
+  double G=rgb[1];
+  double B=rgb[2];
+  R=R/255;
+  G=G/255;
+  B=B/255;
+  double cmax=max(max(R,G),B);
+  double cmin=min(min(R,G),B);
+  double delta=cmax-cmin;
+  if (R==G&&R==B)
+  {
+    hsv[0]=0;
+  }
+  else if (cmax==R)
+  {
+    hsv[0]=60*fmod((G-B)/delta,6);//main idea here is to turn negatives into positives that are at 300+ plus degrees, not really readable but whatever
+  }
+  else if (cmax==G)
+  {
+    hsv[0]=60*((B-R)/delta+2);
+  }
+  else
+  {
+    hsv[0]=60*((R-G)/delta+4);
+  }
+  if (cmax==0)
+  {
+    hsv[1]=0;
+  }
+  else
+  {
+    hsv[1]=delta/cmax;
+  }
+  hsv[2]=cmax;
+  
+}
