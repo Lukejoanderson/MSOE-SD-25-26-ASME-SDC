@@ -7,6 +7,7 @@
 #include <ESPAsyncWebServer.h>
 #include <vector>
 #include "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h"
+#include <ESP32Servo.h>
 
 #define WifiName "MSOE-ASME-BOT"
 #define Pword "123456789"
@@ -130,16 +131,27 @@ class Arm
     const int wristServoPin = 0;
     const int gripperServoPin = 0;
 
+    Servo twistServo;
+    Servo shoulderServo;
+    Servo elbowServo;
+    Servo wristServo;
+    Servo gripperServo;
+
     // Servo limits in degrees. Still need to fix some and ensure bot is on these
     const int twistServoMin = -90;
     const int twistServoMax =  90;
-    const int shoulderServoMin = -30;
-    const int shoulderServoMax = 150;
-    const int elbowServoMin = -30;
-    const int elbowServoMax = 150;
+    const int shoulderServoMin = -90;
+    const int shoulderServoMax = 90;
+    const int elbowServoMin = -60;
+    const int elbowServoMax = 120;
     const int wristServoMin = -90;
     const int wristServoMax =  90;
 
+    // Gripper Stuff
+    bool gripperClosed = false;
+    const int LoadCellCutoff = 5000; // Test value
+    int gripperOpenAngle = 90; // Test value, may need to be changed
+    int currGripperAngle = 90;
     NAU7802 loadcell;
 
   public:
@@ -155,14 +167,55 @@ class Arm
     loadcell.calibrateAFE();
     delay(500);
     loadcell.calculateZeroOffset(50);
+
+    // Servo setup
+      // gripper
+    twistServo.setPeriodHertz(50);
+    twistServo.attach(twistServoPin, 500, 2400);
+
+    shoulderServo.setPeriodHertz(50);
+    shoulderServo.attach(shoulderServoPin, 500, 2400);
+
+    elbowServo.setPeriodHertz(50);
+    elbowServo.attach(elbowServoPin, 500, 2400);
+
+    wristServo.setPeriodHertz(50);
+    wristServo.attach(wristServoPin, 500, 2400);
+
+    gripperServo.setPeriodHertz(50);
+    gripperServo.attach(gripperServoPin, 500, 2400);
+      // Set other servos here
+
+    // whatever
   }
 
-  void readForce(){
+  int readForce(){
     int32_t reading = loadcell.getReading() - loadcell.getZeroOffset();
-    Serial.print("Reading: ");
-    Serial.print(reading);
+    //Serial.print("Reading: ");
+    //Serial.println(reading);
+    return reading;
   }
 
+  void closeGripper(){
+    while (readForce() < LoadCellCutoff){
+      currGripperAngle += 1; // Test value, may need to be changed
+      gripperServo.write(currGripperAngle);
+      delay(100); // Test value, may need to be changed
+    }
+    gripperClosed = true;
+  }
+
+  void openGripper(){
+    currGripperAngle = gripperOpenAngle;
+    gripperServo.write(currGripperAngle);
+    gripperClosed = false;
+  }
+
+  
+
+  void moveAround(){
+
+  }
 
   // Initialize servos and strain gauge here
   // twistServo.attach(twistServoPin);
@@ -185,12 +238,14 @@ class Arm
 
 };
 
+//Initialize bot stuff
 Bot trashBot;
 Motor LeftMotor(14,32,true);
 Motor RightMotor(15,33,false);
 Steering Drivebase(LeftMotor,RightMotor);
 Arm trashArm;
 
+//Total bot set-up command
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
@@ -198,7 +253,7 @@ void setup() {
   Wire.begin();
   trashArm.setup();
   
-  //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
+  //WiFi.softAPConfig(local_IP,gateway,subnet); // this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
 
   Serial.println(WiFi.softAPIP());
