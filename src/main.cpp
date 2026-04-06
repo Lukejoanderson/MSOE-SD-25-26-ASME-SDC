@@ -128,7 +128,8 @@ class sorter
       switch (state)
       {
       case 0:
-        if(apds.readProximity()>25)
+        sortserv.write(90);
+        if(apds.readProximity()>25&&delay.gettime()>250)
         {
           state=1;
           delay.start();
@@ -160,6 +161,7 @@ class sorter
       {
         sortserv.write(90);
         state=0;
+        delay.start();
       }
       break;
       default:
@@ -169,6 +171,7 @@ class sorter
     else
     {
       state=0;
+      delay.start();
       if(overrideT)
       {
         sortserv.write(55);
