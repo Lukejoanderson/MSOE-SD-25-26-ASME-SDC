@@ -30,6 +30,8 @@ var butt9=false;
 var butt10=false;
 var butt11=false;
 var butt12=false;
+var butt13=false;
+var butt14=false;
 
 window.addEventListener("load",onLoad);
 document.addEventListener("fullscreenchange",swap);
@@ -226,21 +228,33 @@ function handEnd(event)
             case "butt7":
                     butt7=false;
                     break;
-                case "butt8":
+            case "butt8":
                     butt8=false;
                     break;
-                case "butt9":
+            case "butt9":
                     butt9=false;
                     break;
-                case "butt10":
+            case "butt10":
                     butt10=false;
                     break;
-                case "butt11":
+            case "butt11":
                     butt11=false;
                     break;
-                case "butt12":
+            case "butt12":
                     butt12=false;
                     break;
+            case "butt13":
+                if(zone==endzone)
+                {
+                    butt13=!butt13;
+                }
+                break;
+            case "butt14":
+                if(zone==endzone)
+                {
+                    butt14=!butt14;
+                }
+                break;
             default:
                 break;
             }
@@ -422,6 +436,26 @@ function drawDisplay()
     {
         cur.stroke()
     }
+    cur.beginPath();
+    cur.rect(1,circZone,width/2,slideZone);
+    if(butt13)
+    {
+        cur.fill();
+    }
+    else
+    {
+        cur.stroke()
+    }
+    cur.beginPath();
+    cur.rect(width/2,circZone,width,slideZone);
+        if(butt14)
+    {
+        cur.fill();
+    }
+    else
+    {
+        cur.stroke()
+    }
 }
 
 function deg2rad(deg)
@@ -489,6 +523,14 @@ function getZone(pos)
         else if (pos[0]>3*ButtH&&pos[0]<4*ButtH&&pos[1]>circZone+slideZone+2*ButtW)
     {
         return "butt12"
+    }
+        else if (pos[0]<=width/2&&pos[1]>circZone&&pos[1]<circZone+slideZone)
+    {
+        return "butt13"
+    }
+        else if (pos[0]>width/2&&pos[1]>circZone&&pos[1]<circZone+slideZone)
+    {
+        return "butt14"
     }
         else 
     {
@@ -575,7 +617,7 @@ function respond(event)
     switch (event.data)
     {
         case "ready":
-            websocket.send(joyPos[0]+","+joyPos[1]+","+armPos[0]+","+armPos[1]+","+slidePos+","+Number(butt1)+","+Number(butt2)+","+Number(butt3)+","+Number(butt4)+","+Number(butt5)+","+Number(butt6)+Number(butt7)+","+Number(butt8)+","+Number(butt9)+","+Number(butt10)+","+Number(butt11)+","+Number(butt12));
+            websocket.send(joyPos[0]+","+joyPos[1]+","+armPos[0]+","+armPos[1]+","+slidePos+","+Number(butt1)+","+Number(butt2)+","+Number(butt3)+","+Number(butt4)+","+Number(butt5)+","+Number(butt6)+Number(butt7)+","+Number(butt8)+","+Number(butt9)+","+Number(butt10)+","+Number(butt11)+","+Number(butt12)+Number(butt13)+Number(butt14));
             break;
         default:
             console.log("unknown comm");
