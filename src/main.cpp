@@ -71,25 +71,48 @@ class Steering
   {
     double ang = atan2(abs(y),abs(x));
     float speed=sqrt(x*x+y*y);
-    if (x>=0&&y>=0)
+    if (y>=0.95)
     {
-      motorL.write(speed,true);
-      motorR.write(speed*(ang/PI),true);
+      motorL.write(1,false);
+      motorR.write(1,false);
     }
-    else if (y>=0&&x<=0)
+    else if (y<=-0.95)
     {
-      motorL.write(speed*ang/PI,true);
-      motorR.write(speed,true);
+      motorL.write(1,true);
+      motorR.write(1,true);
     }
-    else if (y<=0&&x<=0)
+    else if (x>=0.95)
     {
-      motorL.write(speed*ang/PI,false);
-      motorR.write(speed,false);
+      motorL.write(1,false);
+      motorR.write(0,false);
     }
-    else if (y<=0&&x>=0)
+    else if (x<=-0.95)
     {
-      motorL.write(speed,false);
-      motorR.write(speed*(ang/PI),false);
+      motorL.write(0,false);
+      motorR.write(1,false);
+    }
+    else
+    {
+      if (x>=0&&y>=0)
+      {
+        motorL.write(speed,true);
+        motorR.write(speed*(ang/PI),true);
+      }
+      else if (y>=0&&x<=0)
+      {
+        motorL.write(speed*ang/PI,true);
+        motorR.write(speed,true);
+      }
+      else if (y<=0&&x<=0)
+      {
+        motorL.write(speed*ang/PI,false);
+        motorR.write(speed,false);
+      }
+      else if (y<=0&&x>=0)
+      {
+        motorL.write(speed,false);
+        motorR.write(speed*(ang/PI),false);
+      }
     }
   }
 };
