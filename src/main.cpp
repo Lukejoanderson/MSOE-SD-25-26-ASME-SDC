@@ -277,10 +277,12 @@ class Arm
 
     // Gripper Stuff -----------------------------------------------------------------
     NAU7802 loadcell;
-    bool gripperClosed = false;
     const int LoadCellCutoff = 5000; // Test value
+    bool attemptGripperClose = false;
+    bool gripperClosed = false;
     int gripperOpenAngle = 90; // Test value, may need to be changed
     int currGripperAngle = gripperOpenAngle;
+    unsigned long gripperCloseStart = 0;
 
   public:
   Arm(){}
@@ -327,33 +329,101 @@ class Arm
     return reading;
   }
 
-  void closeGripper(){
-    while (readForce() < LoadCellCutoff){
-      currGripperAngle += 1; // Test value, may need to be changed
-      gripperServo.write(currGripperAngle);
-      delay(100); // Test value, may need to be changed
+  void updateGrip(){
+    if (!attemptGripperClose) return;
+
+    if (gripperCloseStart == 0){
+      gripperCloseStart = millis();
     }
-    gripperClosed = true;
+
+    if (readForce() > LoadCellCutoff){
+      attemptGripperClose = false;
+      gripperClosed = true;
+      gripperCloseStart = 0;
+      return;
+    }
+
+    if (millis() - gripperCloseStart > 1500){
+      attemptGripperClose = false;
+      gripperClosed = false;
+      gripperCloseStart = 0;
+      currGripperAngle = gripperOpenAngle;
+      gripperServo.write(currGripperAngle);
+      return;
+    }
+
+    currGripperAngle += 1;
+    currGripperAngle = constrain(currGripperAngle, 60, 120);
+    gripperServo.write(currGripperAngle);
   }
 
   void openGripper(){
+    attemptGripperClose = false;
+    gripperClosed = false;
+    gripperCloseStart = 0;
     currGripperAngle = gripperOpenAngle;
     gripperServo.write(currGripperAngle);
-    gripperClosed = false;
   }
 
-  
+  void incrementTwist(bool pressed, int dir){
+    static unsigned long holdStart = 0;
+    static unsigned long last = 0;
 
-  void moveAround(){
+    if (!pressed) { holdStart = 0; return; }
 
+    if (holdStart == 0) { holdStart = millis(); }
+
+    unsigned long holdTime = millis() - holdStart;
+
+    int accelDivisor = 300; // change this for accel wanted (100 is more aggressive, 500 is less aggressive)
+    int step = (1 + holdTime / accelDivisor) * dir;
+
+    if (millis() - last > 30) {      // update rate (smoothness)
+      currTwistServoAngle = min(max(currTwistServoAngle + step, twistServoMin), twistServoMax);
+      twistServo.write(currTwistServoAngle);
+      last = millis();
+    }
   }
 
-  // Initialize servos and strain gauge here
-  // twistServo.attach(twistServoPin);
-  // shoulderServo.attach(shoulderServoPin);
-  // elbowServo.attach(elbowServoPin);
-  // wristServo.attach(wristServoPin);
-  // gripperServo.attach(gripperServoPin);
+  void incrementShoulder(bool pressed, int dir){
+    static unsigned long holdStart = 0;
+    static unsigned long last = 0;
+
+    if (!pressed) { holdStart = 0; return; }
+
+    if (holdStart == 0) { holdStart = millis(); }
+
+    unsigned long holdTime = millis() - holdStart;
+
+    int accelDivisor = 300; // change this for accel wanted (100 is more aggressive, 500 is less aggressive)
+    int step = (1 + holdTime / accelDivisor) * dir;
+
+    if (millis() - last > 30) {      // update rate (smoothness)
+      currShoulderServoAngle = min(max(currShoulderServoAngle + step, shoulderServoMin), shoulderServoMax);
+      shoulderServo.write(currShoulderServoAngle);
+      last = millis();
+    }
+  }
+
+  void incrementElbow(bool pressed, int dir){
+    static unsigned long holdStart = 0;
+    static unsigned long last = 0;
+
+    if (!pressed) { holdStart = 0; return; }
+
+    if (holdStart == 0) { holdStart = millis(); }
+
+    unsigned long holdTime = millis() - holdStart;
+
+    int accelDivisor = 300; // change this for accel wanted (100 is more aggressive, 500 is less aggressive)
+    int step = (1 + holdTime / accelDivisor) * dir;
+
+    if (millis() - last > 30) {      // update rate (smoothness)
+      currElbowServoAngle = min(max(currElbowServoAngle + step, elbowServoMin), elbowServoMax);
+      elbowServo.write(currElbowServoAngle);
+      last = millis();
+    }
+  }
 
   // Need to set up strain gauge pin as input and calibrate it
 
@@ -454,6 +524,24 @@ void setup() {
                 break;
               case 7:
                 sort.overrideT=sub.toInt();
+                break;
+              case 8:
+                trashBotArm.incrementTwist(sub.toInt(),1);
+                break;
+              case 9:
+                trashBotArm.incrementTwist(sub.toInt(),-1);
+                break;
+              case 10:
+                trashBotArm.incrementShoulder(sub.toInt(),1);
+                break;
+              case 11:
+                trashBotArm.incrementShoulder(sub.toInt(),-1);
+                break;
+              case 12:
+                trashBotArm.incrementElbow(sub.toInt(),1);
+                break;
+              case 13:
+                trashBotArm.incrementElbow(sub.toInt(),-1);
                 break;
               default:
               break;
