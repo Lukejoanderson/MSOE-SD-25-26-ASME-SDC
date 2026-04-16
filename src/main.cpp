@@ -358,6 +358,11 @@ class Arm
 
 };
 
+<<<<<<< Updated upstream
+=======
+
+
+>>>>>>> Stashed changes
 Bot trashBot;
 Arm trashBotArm;
 Motor LeftMotor(14,32,true);
@@ -370,6 +375,10 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
   Serial.println("Hello World");
+
+  Wire.begin();
+  trashBotArm.setup();
+
   apds.begin();
   apds.enableColor();
   apds.enableProximity();
