@@ -8,6 +8,7 @@
 #include <vector>
 #include <Adafruit_APDS9960.h>
 #include <ESP32Servo.h>
+#include "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h"
 #define WifiName "MSOE-ASME-BOT"
 #define Pword "123456789"
 
@@ -242,12 +243,129 @@ class Bot
   }
 };
 
+class Arm
+{
+  private:
+    // Placeholder pin numbers, need to be changed to actual pins
+    const int twistServoPin    = A0;
+    const int shoulderServoPin = A1;
+    const int elbowServoPin = A5;
+    const int wristServoPin = SCK;
+    const int gripperServoPin = MOSI;
+
+    Servo twistServo;
+    Servo shoulderServo;
+    Servo elbowServo;
+    Servo wristServo;
+    Servo gripperServo;
+
+    // Servo limits in degrees. Still need to fix some and ensure bot is on these
+    const int twistServoMin = -90;
+    const int twistServoMax =  90;
+    const int shoulderServoMin = -90;
+    const int shoulderServoMax = 90;
+    const int elbowServoMin = -60;
+    const int elbowServoMax = 120;
+    const int wristServoMin = -90;
+    const int wristServoMax =  90;
+
+    // Gripper Stuff
+    bool gripperClosed = false;
+    const int LoadCellCutoff = 5000; // Test value
+    int gripperOpenAngle = 90; // Test value, may need to be changed
+    int currGripperAngle = 90;
+    NAU7802 loadcell;
+
+  public:
+  Arm(){}
+  void setup(){
+    // Load Cell setup
+    Serial.println("Waiting for Load Cell!");
+    while (!loadcell.begin()) {Serial.print("."); delay(100);}
+    Serial.println(); Serial.println("Load Cell Connected!");
+
+    loadcell.setSampleRate(10);
+    loadcell.setGain(128);
+    loadcell.calibrateAFE();
+    delay(500);
+    loadcell.calculateZeroOffset(50);
+
+    // Servo setup
+      // gripper
+    twistServo.attach(twistServoPin);
+    shoulderServo.attach(shoulderServoPin);
+    elbowServo.attach(elbowServoPin);
+    wristServo.attach(wristServoPin);
+    gripperServo.attach(gripperServoPin);
+      // Set other servos here
+
+    delay(1000);
+
+    twistServo.write(90);
+    shoulderServo.write(90);
+    elbowServo.write(90);
+    wristServo.write(90);
+    gripperServo.write(gripperOpenAngle);
+
+  }
+
+  int readForce(){
+    int32_t reading = loadcell.getReading() - loadcell.getZeroOffset();
+    //Serial.print("Reading: ");
+    //Serial.println(reading);
+    return reading;
+  }
+
+  void closeGripper(){
+    while (readForce() < LoadCellCutoff){
+      currGripperAngle += 1; // Test value, may need to be changed
+      gripperServo.write(currGripperAngle);
+      delay(100); // Test value, may need to be changed
+    }
+    gripperClosed = true;
+  }
+
+  void openGripper(){
+    currGripperAngle = gripperOpenAngle;
+    gripperServo.write(currGripperAngle);
+    gripperClosed = false;
+  }
+
+  
+
+  void moveAround(){
+
+  }
+
+  // Initialize servos and strain gauge here
+  // twistServo.attach(twistServoPin);
+  // shoulderServo.attach(shoulderServoPin);
+  // elbowServo.attach(elbowServoPin);
+  // wristServo.attach(wristServoPin);
+  // gripperServo.attach(gripperServoPin);
+
+  // Need to set up strain gauge pin as input and calibrate it
+
+  // Commands needed:
+  // 1. Set twist angle
+  // 2. Move out or in
+  // 3. Move up or down
+  // 4. Open or close gripper
+  // 5. Bring arm to dump position
+  // 6. Dump
+  // 7. Bring arm to some average pickup position (or the last pickup spot?)
+  // 8. ??
+
+};
+
 Bot trashBot;
+Arm trashBotArm;
 Motor LeftMotor(14,32,true);
 Motor RightMotor(15,33,true);
 Steering Drivebase(LeftMotor,RightMotor);
 sorter sort;
 timer looptime;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
