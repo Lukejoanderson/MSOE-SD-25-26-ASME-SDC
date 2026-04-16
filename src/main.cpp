@@ -246,43 +246,58 @@ class Bot
 class Arm
 {
   private:
-    // Placeholder pin numbers, need to be changed to actual pins
-    const int twistServoPin    = A0;
-    const int shoulderServoPin = A1;
-    const int elbowServoPin = A5;
-    const int wristServoPin = SCK;
-    const int gripperServoPin = MOSI;
-
     Servo twistServo;
     Servo shoulderServo;
     Servo elbowServo;
     Servo wristServo;
     Servo gripperServo;
 
-    // Servo limits in degrees. Still need to fix some and ensure bot is on these
+    const int twistServoPin    = A0;
+    const int shoulderServoPin = A1;
+    const int elbowServoPin = A5;
+    const int wristServoPin = SCK;
+    const int gripperServoPin = MOSI;
+
+    // Servo limits in degrees. Still need to fix some and ensure bot is on these -----------------------------------------------------------------
     const int twistServoMin = -90;
+    int currTwistServoAngle =  90;
     const int twistServoMax =  90;
-    const int shoulderServoMin = -90;
-    const int shoulderServoMax = 90;
+
+    const int shoulderServoMin = -15;
+    int currShoulderServoAngle =  90;
+    const int shoulderServoMax =  90;
+
     const int elbowServoMin = -60;
-    const int elbowServoMax = 120;
+    int currElbowServoAngle =  90;
+    const int elbowServoMax =  120;
+
     const int wristServoMin = -90;
+    int currWristServoAngle =  90;
     const int wristServoMax =  90;
 
-    // Gripper Stuff
+    // Gripper Stuff -----------------------------------------------------------------
+    NAU7802 loadcell;
     bool gripperClosed = false;
     const int LoadCellCutoff = 5000; // Test value
     int gripperOpenAngle = 90; // Test value, may need to be changed
-    int currGripperAngle = 90;
-    NAU7802 loadcell;
+    int currGripperAngle = gripperOpenAngle;
 
   public:
   Arm(){}
   void setup(){
-    // Load Cell setup
-    Serial.println("Waiting for Load Cell!");
-    while (!loadcell.begin()) {Serial.print("."); delay(100);}
-    Serial.println(); Serial.println("Load Cell Connected!");
+    // Load Cell setup -----------------------------------------------------------------
+    Serial.println("Waiting for Load Cell! ");
+
+    unsigned long wait = millis();
+    while (!loadcell.begin() && (millis() - wait) < 5000) { Serial.print("."); delay(100); }
+
+    Serial.println();
+    if (millis() - wait >= 5000) {
+        Serial.println("Load Cell FAILED to connect.");
+        currGripperAngle = 135;
+    } else {
+        Serial.println("Load Cell Connected!");
+    }
 
     loadcell.setSampleRate(10);
     loadcell.setGain(128);
@@ -290,23 +305,19 @@ class Arm
     delay(500);
     loadcell.calculateZeroOffset(50);
 
-    // Servo setup
-      // gripper
-    twistServo.attach(twistServoPin);
-    shoulderServo.attach(shoulderServoPin);
-    elbowServo.attach(elbowServoPin);
-    wristServo.attach(wristServoPin);
-    gripperServo.attach(gripperServoPin);
-      // Set other servos here
+    // Servo setup -----------------------------------------------------------------
+    allHome();
 
-    delay(1000);
+  }
 
-    twistServo.write(90);
-    shoulderServo.write(90);
-    elbowServo.write(90);
-    wristServo.write(90);
-    gripperServo.write(gripperOpenAngle);
+  // Commands -----------------------------------------------------------------
 
+  void allHome(){
+    twistServo.write(currTwistServoAngle);
+    shoulderServo.write(currShoulderServoAngle);
+    elbowServo.write(currElbowServoAngle);
+    wristServo.write(currWristServoAngle);
+    gripperServo.write(currGripperAngle);
   }
 
   int readForce(){
@@ -358,11 +369,8 @@ class Arm
 
 };
 
-<<<<<<< Updated upstream
-=======
 
 
->>>>>>> Stashed changes
 Bot trashBot;
 Arm trashBotArm;
 Motor LeftMotor(14,32,true);
