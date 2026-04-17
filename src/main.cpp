@@ -306,13 +306,22 @@ class Arm
     loadcell.calibrateAFE();
     delay(500);
     loadcell.calculateZeroOffset(50);
+    delay(500);
 
     // Servo setup -----------------------------------------------------------------
+    allAttach();
     allHome();
 
   }
 
   // Commands -----------------------------------------------------------------
+  void allAttach(){
+    twistServo.attach(twistServoPin);
+    shoulderServo.attach(shoulderServoPin);
+    elbowServo.attach(elbowServoPin);
+    wristServo.attach(wristServoPin);
+    gripperServo.attach(gripperServoPin);
+  }
 
   void allHome(){
     twistServo.write(currTwistServoAngle);
@@ -423,6 +432,10 @@ class Arm
       elbowServo.write(currElbowServoAngle);
       last = millis();
     }
+  }
+
+  void dump(){
+
   }
 
   // Need to set up strain gauge pin as input and calibrate it
@@ -568,6 +581,7 @@ void loop() {
     looptime.start();
   }
   sort.update();
+  trashBotArm.updateGrip();
   //probably should do some more smart stuff here (proper timer stuff), this is probably where the sorting code is going to go. Also maybe if we need to do motion smoothing for the arm servos.
 }
 
