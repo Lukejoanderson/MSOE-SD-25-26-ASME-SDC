@@ -24,7 +24,8 @@ AsyncWebServer server(80);
 
 static AsyncWebSocketMessageHandler wsHand;
 static AsyncWebSocket ws("/ws",wsHand.eventHandler());
-
+Servo gate;
+Servo dump;
 class Motor
 {
   private:
@@ -255,6 +256,10 @@ void setup() {
   apds.begin();
   apds.enableColor();
   apds.enableProximity();
+  gate.attach(13);
+  dump.attach(12);
+  gate.write(90);
+  dump.write(0);
   //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
 
@@ -300,6 +305,7 @@ void setup() {
             String sub=msg.substring(prevSub+1,i);
             prevSub=i;
             float forward;
+            bool trash;
             switch (dataSeg)
             {
               case 0:
@@ -309,7 +315,7 @@ void setup() {
                 Drivebase.control(sub.toFloat(),forward);
                 break;
               case 4:
-                trashBot.dimLeg(sub.toFloat());
+                //trashBot.dimLeg(sub.toFloat());
               break;
               case 5:
                 sort.active=sub.toInt();
@@ -320,6 +326,20 @@ void setup() {
               case 7:
                 sort.overrideT=sub.toInt();
                 break;
+              case 8:
+                if(sub.toInt())
+                {
+                  dump.write(55);
+                  sort.active=false;
+                }
+                else
+                {
+                  dump.write(0);
+                }
+              break;
+              case 9:
+                trash=sub.toInt();
+              break;
               default:
               break;
             }
