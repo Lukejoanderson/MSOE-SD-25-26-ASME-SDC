@@ -258,63 +258,99 @@ class Arm
     const int wristServoPin = SCK;
     const int gripperServoPin = MOSI;
 
-    // Servo limits in degrees. Still need to fix some and ensure bot is on these -----------------------------------------------------------------
-    const int twistServoMin = -90;
-    int currTwistServoAngle =  90;
-    const int twistServoMax =  90;
+    // Servo limits (LOGICAL angles)
+    const int twistServoMin =  0;
+    const int twistServoMax =  180;
+    const int twistServoHome = 90;
+    int currTwistServoAngle = twistServoHome;
 
-    const int shoulderServoMin = -15;
-    int currShoulderServoAngle =  90;
-    const int shoulderServoMax =  90;
+    const int shoulderServoMin = 60;
+    const int shoulderServoMax = 180;
+    const int shoulderServoHome = 75; // 105
+    const int shoulderServoOffset = -2; // fix
+    int currShoulderServoAngle = shoulderServoHome;
 
-    const int elbowServoMin = -60;
-    int currElbowServoAngle =  90;
-    const int elbowServoMax =  120;
+    const int elbowServoMin = 0;
+    const int elbowServoMax = 180;
+    const int elbowServoHome = 60;
+    const int elbowServoOffset = -5;
+    int currElbowServoAngle = elbowServoHome;
 
-    const int wristServoMin = -90;
-    int currWristServoAngle =  90;
-    const int wristServoMax =  90;
+    const int wristServoMin = 0;
+    const int wristServoMax = 180;
+    const int wristServoHome = 0;
+    const int wristServoOffset = 5;
+    int currWristServoAngle = wristServoHome;
 
-    // Gripper Stuff -----------------------------------------------------------------
+    const int gripperServoMin = 45;
+    const int gripperServoMax = 120;
+    const int gripperServoHome = 45;
+    int currGripperServoAngle = gripperServoHome;
+
+    // Gripper Stuff
     NAU7802 loadcell;
-    const int LoadCellCutoff = 5000; // Test value
+    const int LoadCellCutoff = 2500;
     bool attemptGripperClose = false;
     bool gripperClosed = false;
-    int gripperOpenAngle = 90; // Test value, may need to be changed
-    int currGripperAngle = gripperOpenAngle;
     unsigned long gripperCloseStart = 0;
+
+    // -------- WRITE HELPERS (APPLY OFFSETS HERE ONLY) --------
+    void writeTwist(int angle){
+      int corrected = constrain(angle, twistServoMin, twistServoMax);
+      twistServo.write(corrected);
+      currTwistServoAngle = angle;
+    }
+
+    void writeShoulder(int angle){
+      int corrected = constrain(angle + shoulderServoOffset, shoulderServoMin, shoulderServoMax);
+      shoulderServo.write(corrected);
+      currShoulderServoAngle = angle;
+    }
+
+    void writeElbow(int angle){
+      int corrected = constrain(angle + elbowServoOffset, elbowServoMin, elbowServoMax);
+      elbowServo.write(corrected);
+      currElbowServoAngle = angle;
+    }
+
+    void writeWrist(int angle){
+      int corrected = constrain(angle + wristServoOffset, wristServoMin, wristServoMax);
+      wristServo.write(corrected);
+      currWristServoAngle = angle;
+    }
 
   public:
   Arm(){}
+
   void setup(){
-    // Load Cell setup -----------------------------------------------------------------
+    // Load Cell setup
     Serial.println("Waiting for Load Cell! ");
 
     unsigned long wait = millis();
-    while (!loadcell.begin() && (millis() - wait) < 5000) { Serial.print("."); delay(100); }
+    while (!loadcell.begin() && (millis() - wait) < 5000) {
+      Serial.print(".");
+      delay(100);
+    }
 
     Serial.println();
     if (millis() - wait >= 5000) {
         Serial.println("Load Cell FAILED to connect.");
-        currGripperAngle = 135;
+        currGripperServoAngle = gripperServoHome;
     } else {
         Serial.println("Load Cell Connected!");
     }
 
     loadcell.setSampleRate(10);
-    loadcell.setGain(128);
+    loadcell.setGain(1);
     loadcell.calibrateAFE();
     delay(500);
     loadcell.calculateZeroOffset(50);
     delay(500);
 
-    // Servo setup -----------------------------------------------------------------
     allAttach();
     allHome();
-
   }
 
-  // Commands -----------------------------------------------------------------
   void allAttach(){
     twistServo.attach(twistServoPin);
     shoulderServo.attach(shoulderServoPin);
@@ -324,54 +360,89 @@ class Arm
   }
 
   void allHome(){
-    twistServo.write(currTwistServoAngle);
-    shoulderServo.write(currShoulderServoAngle);
-    elbowServo.write(currElbowServoAngle);
-    wristServo.write(currWristServoAngle);
-    gripperServo.write(currGripperAngle);
+    writeTwist(twistServoHome);
+    writeShoulder(shoulderServoHome);
+    writeElbow(elbowServoHome);
+    writeWrist(wristServoHome);
+    gripperServo.write(gripperServoHome);
   }
 
   int readForce(){
     int32_t reading = loadcell.getReading() - loadcell.getZeroOffset();
-    //Serial.print("Reading: ");
-    //Serial.println(reading);
+
+    static unsigned long lastPrint = 0;
+    if (millis() - lastPrint >= 250) {  // 250 ms = 0.25 sec
+      Serial.print("Load Cell Reading: ");
+      Serial.println(reading);
+      lastPrint = millis();
+    }
+
     return reading;
   }
 
-  void updateGrip(){
+
+  void updateArm(){
+
+    // -------- Wrist leveling --------
+    const int WRIST_LEVEL_CONST = -(shoulderServoHome + elbowServoHome);
+
+    int desiredWristAngle = WRIST_LEVEL_CONST + currShoulderServoAngle + currElbowServoAngle;
+    desiredWristAngle = constrain(desiredWristAngle, wristServoMin, wristServoMax);
+
+    writeWrist(desiredWristAngle);
+
+    // -------- Gripper logic --------
+    static unsigned long lastMove = 0;
+
     if (!attemptGripperClose) return;
+    if (gripperClosed) return;
 
     if (gripperCloseStart == 0){
       gripperCloseStart = millis();
     }
 
-    if (readForce() > LoadCellCutoff){
+    static unsigned long lastForceRead = 0;
+    int force = 0;
+
+    if (millis() - lastForceRead > 50){
+      force = readForce();
+      lastForceRead = millis();
+    }
+
+    if (force > LoadCellCutoff){
       attemptGripperClose = false;
       gripperClosed = true;
       gripperCloseStart = 0;
       return;
     }
 
-    if (millis() - gripperCloseStart > 1500){
+    if (millis() - gripperCloseStart > 2000){
       attemptGripperClose = false;
       gripperClosed = false;
       gripperCloseStart = 0;
-      currGripperAngle = gripperOpenAngle;
-      gripperServo.write(currGripperAngle);
+      currGripperServoAngle = gripperServoHome;
+      gripperServo.write(currGripperServoAngle);
       return;
     }
 
-    currGripperAngle += 1;
-    currGripperAngle = constrain(currGripperAngle, 60, 120);
-    gripperServo.write(currGripperAngle);
+    if (millis() - lastMove > 40){
+      currGripperServoAngle += 1;
+      currGripperServoAngle = constrain(currGripperServoAngle, gripperServoMin, gripperServoMax);
+      gripperServo.write(currGripperServoAngle);
+      lastMove = millis();
+    }
   }
 
   void openGripper(){
     attemptGripperClose = false;
     gripperClosed = false;
     gripperCloseStart = 0;
-    currGripperAngle = gripperOpenAngle;
-    gripperServo.write(currGripperAngle);
+    currGripperServoAngle = gripperServoHome;
+    gripperServo.write(currGripperServoAngle);
+  }
+
+  void setAttemptGripperClose(int value){
+    attemptGripperClose = value;
   }
 
   void incrementTwist(bool pressed, int dir){
@@ -379,17 +450,13 @@ class Arm
     static unsigned long last = 0;
 
     if (!pressed) { holdStart = 0; return; }
-
     if (holdStart == 0) { holdStart = millis(); }
 
     unsigned long holdTime = millis() - holdStart;
+    int step = (1 + holdTime / 300) * dir;
 
-    int accelDivisor = 300; // change this for accel wanted (100 is more aggressive, 500 is less aggressive)
-    int step = (1 + holdTime / accelDivisor) * dir;
-
-    if (millis() - last > 30) {      // update rate (smoothness)
-      currTwistServoAngle = min(max(currTwistServoAngle + step, twistServoMin), twistServoMax);
-      twistServo.write(currTwistServoAngle);
+    if (millis() - last > 30) {
+      writeTwist(currTwistServoAngle + step);
       last = millis();
     }
   }
@@ -399,17 +466,15 @@ class Arm
     static unsigned long last = 0;
 
     if (!pressed) { holdStart = 0; return; }
-
     if (holdStart == 0) { holdStart = millis(); }
 
     unsigned long holdTime = millis() - holdStart;
+    int step = (1 + holdTime / 300) * dir;
 
-    int accelDivisor = 300; // change this for accel wanted (100 is more aggressive, 500 is less aggressive)
-    int step = (1 + holdTime / accelDivisor) * dir;
-
-    if (millis() - last > 30) {      // update rate (smoothness)
-      currShoulderServoAngle = min(max(currShoulderServoAngle + step, shoulderServoMin), shoulderServoMax);
-      shoulderServo.write(currShoulderServoAngle);
+    if (millis() - last > 30) {
+      int next = currShoulderServoAngle + step;
+      next = constrain(next, shoulderServoMin, shoulderServoMax);
+      writeShoulder(next);
       last = millis();
     }
   }
@@ -419,38 +484,24 @@ class Arm
     static unsigned long last = 0;
 
     if (!pressed) { holdStart = 0; return; }
-
     if (holdStart == 0) { holdStart = millis(); }
 
     unsigned long holdTime = millis() - holdStart;
+    int step = (1 + holdTime / 300) * dir;
 
-    int accelDivisor = 300; // change this for accel wanted (100 is more aggressive, 500 is less aggressive)
-    int step = (1 + holdTime / accelDivisor) * dir;
-
-    if (millis() - last > 30) {      // update rate (smoothness)
-      currElbowServoAngle = min(max(currElbowServoAngle + step, elbowServoMin), elbowServoMax);
-      elbowServo.write(currElbowServoAngle);
+    if (millis() - last > 30) {
+      int next = currElbowServoAngle + step;
+      next = constrain(next, elbowServoMin, elbowServoMax);
+      writeElbow(next);
       last = millis();
     }
   }
 
   void dump(){
-
+    // future implementation
   }
-
-  // Need to set up strain gauge pin as input and calibrate it
-
-  // Commands needed:
-  // 1. Set twist angle
-  // 2. Move out or in
-  // 3. Move up or down
-  // 4. Open or close gripper
-  // 5. Bring arm to dump position
-  // 6. Dump
-  // 7. Bring arm to some average pickup position (or the last pickup spot?)
-  // 8. ??
-
 };
+
 
 
 
@@ -538,23 +589,31 @@ void setup() {
               case 7:
                 sort.overrideT=sub.toInt();
                 break;
-              case 8:
+              case 14:
                 trashBotArm.incrementTwist(sub.toInt(),1);
                 break;
-              case 9:
+              case 11:
                 trashBotArm.incrementTwist(sub.toInt(),-1);
                 break;
-              case 10:
+              case 15:
                 trashBotArm.incrementShoulder(sub.toInt(),1);
                 break;
-              case 11:
+              case 12:
                 trashBotArm.incrementShoulder(sub.toInt(),-1);
                 break;
-              case 12:
+              case 16:
                 trashBotArm.incrementElbow(sub.toInt(),1);
                 break;
               case 13:
                 trashBotArm.incrementElbow(sub.toInt(),-1);
+                break;
+              case 17:
+                if (sub.toInt() == 1){
+                  trashBotArm.setAttemptGripperClose(1);
+                }
+                break;
+              case 18:
+                trashBotArm.openGripper();
                 break;
               default:
               break;
@@ -581,7 +640,8 @@ void loop() {
     looptime.start();
   }
   sort.update();
-  trashBotArm.updateGrip();
+  trashBotArm.updateArm();
+  //trashBotArm.readForce();
   //probably should do some more smart stuff here (proper timer stuff), this is probably where the sorting code is going to go. Also maybe if we need to do motion smoothing for the arm servos.
 }
 

@@ -617,7 +617,27 @@ function respond(event)
     switch (event.data)
     {
         case "ready":
-            websocket.send(joyPos[0]+","+joyPos[1]+","+armPos[0]+","+armPos[1]+","+slidePos+","+Number(butt1)+","+Number(butt2)+","+Number(butt3)+","+Number(butt4)+","+Number(butt5)+","+Number(butt6)+Number(butt7)+","+Number(butt8)+","+Number(butt9)+","+Number(butt10)+","+Number(butt11)+","+Number(butt12)+Number(butt13)+Number(butt14));
+            websocket.send([
+                joyPos[0],
+                joyPos[1],
+                armPos[0],
+                armPos[1],
+                slidePos,
+                Number(butt1),
+                Number(butt2),
+                Number(butt3),
+                Number(butt4),
+                Number(butt5),
+                Number(butt6),
+                Number(butt7),
+                Number(butt8),
+                Number(butt9),
+                Number(butt10),
+                Number(butt11),
+                Number(butt12),
+                Number(butt13),
+                Number(butt14)
+            ].join(","));
             break;
         default:
             console.log("unknown comm");
