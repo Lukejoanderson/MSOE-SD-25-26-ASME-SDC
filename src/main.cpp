@@ -634,6 +634,19 @@ void setup() {
               break;
               case 9:
                 trash=sub.toInt();
+                break;
+              case 10:
+              if(trash){
+                gate.write(0);
+              }
+              else if(sub.toInt())
+              {
+                gate.write(180);
+              }
+              else
+              {
+                gate.write(90);
+              }
               break;
               default:
               break;
