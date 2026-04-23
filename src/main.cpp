@@ -274,7 +274,7 @@ class Arm
     const int elbowServoMin = 0;
     const int elbowServoMax = 180;
     const int elbowServoHome = 60;
-    const int elbowServoOffset = -5;
+    const int elbowServoOffset = 4;
     int currElbowServoAngle = elbowServoHome;
 
     const int wristServoMin = 0;
@@ -295,30 +295,59 @@ class Arm
     bool gripperClosed = false;
     unsigned long gripperCloseStart = 0;
 
+    int lastTwist = -999;
+    int lastShoulder = -999;
+    int lastElbow = -999;
+    int lastWrist = -999;
+    int lastGripper = -999;
+
+
     // -------- WRITE HELPERS (APPLY OFFSETS HERE ONLY) --------
     void writeTwist(int angle){
       int corrected = constrain(angle, twistServoMin, twistServoMax);
-      twistServo.write(corrected);
+
+      if (abs(corrected - lastTwist) > 0){
+        twistServo.write(corrected);
+        lastTwist = corrected;
+      }
+
       currTwistServoAngle = angle;
     }
 
     void writeShoulder(int angle){
       int corrected = constrain(angle + shoulderServoOffset, shoulderServoMin, shoulderServoMax);
-      shoulderServo.write(corrected);
+
+      if (abs(corrected - lastShoulder) > 0){
+        shoulderServo.write(corrected);
+        lastShoulder = corrected;
+      }
+
       currShoulderServoAngle = angle;
     }
 
     void writeElbow(int angle){
       int corrected = constrain(angle + elbowServoOffset, elbowServoMin, elbowServoMax);
-      elbowServo.write(corrected);
+
+      if (abs(corrected - lastElbow) > 0){
+        elbowServo.write(corrected);
+        lastElbow = corrected;
+      }
+
       currElbowServoAngle = angle;
     }
 
+
     void writeWrist(int angle){
       int corrected = constrain(angle + wristServoOffset, wristServoMin, wristServoMax);
-      wristServo.write(corrected);
+
+      if (abs(corrected - lastWrist) > 0){
+        wristServo.write(corrected);
+        lastWrist = corrected;
+      }
+
       currWristServoAngle = angle;
     }
+
 
   public:
   Arm(){}
@@ -387,7 +416,7 @@ class Arm
     // -------- Wrist leveling --------
     const int WRIST_LEVEL_CONST = -(shoulderServoHome + elbowServoHome);
 
-    int desiredWristAngle = WRIST_LEVEL_CONST + currShoulderServoAngle + currElbowServoAngle;
+    int desiredWristAngle = WRIST_LEVEL_CONST + (currShoulderServoAngle+shoulderServoOffset) + (currElbowServoAngle+elbowServoOffset);
     desiredWristAngle = constrain(desiredWristAngle, wristServoMin, wristServoMax);
 
     writeWrist(desiredWristAngle);
@@ -454,9 +483,9 @@ class Arm
     if (holdStart == 0) { holdStart = millis(); }
 
     unsigned long holdTime = millis() - holdStart;
-    int step = (1 + holdTime / 300) * dir;
+    int step = (1 + holdTime / 2) * dir;
 
-    if (millis() - last > 30) {
+    if (millis() - last > 10) {
       writeTwist(currTwistServoAngle + step);
       last = millis();
     }
@@ -470,9 +499,9 @@ class Arm
     if (holdStart == 0) { holdStart = millis(); }
 
     unsigned long holdTime = millis() - holdStart;
-    int step = (1 + holdTime / 300) * dir;
+    int step = (1 + holdTime / 2) * dir;
 
-    if (millis() - last > 30) {
+    if (millis() - last > 10) {
       int next = currShoulderServoAngle + step;
       next = constrain(next, shoulderServoMin, shoulderServoMax);
       writeShoulder(next);
@@ -488,9 +517,9 @@ class Arm
     if (holdStart == 0) { holdStart = millis(); }
 
     unsigned long holdTime = millis() - holdStart;
-    int step = (1 + holdTime / 300) * dir;
+    int step = (1 + holdTime / 2) * dir;
 
-    if (millis() - last > 30) {
+    if (millis() - last > 10) {
       int next = currElbowServoAngle + step;
       next = constrain(next, elbowServoMin, elbowServoMax);
       writeElbow(next);
