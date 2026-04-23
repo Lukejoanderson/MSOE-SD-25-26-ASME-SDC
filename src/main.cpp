@@ -171,11 +171,11 @@ class sorter
           RGB2HSV(RGB,HSV);
           if (HSV[0]>=70&&HSV[0]<=260&&HSV[1]>.4&&HSV[2]>.3)
           {
-            sortserv.write(130);
+            sortserv.write(135);
           }
           else
           {
-            sortserv.write(55);
+            sortserv.write(50);
           }
           delay.start();
           state=2;
