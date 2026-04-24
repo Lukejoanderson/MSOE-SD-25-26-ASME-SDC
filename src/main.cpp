@@ -85,13 +85,13 @@ class Steering
     }
     else if (x>=0.95)
     {
-      motorL.write(1,false);
-      motorR.write(0,false);
+      motorL.write(1,true);
+      motorR.write(1,false);
     }
     else if (x<=-0.95)
     {
-      motorL.write(0,false);
-      motorR.write(1,false);
+      motorL.write(1,false);
+      motorR.write(1,true);
     }
     else
     {
