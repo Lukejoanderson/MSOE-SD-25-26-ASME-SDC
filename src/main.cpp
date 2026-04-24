@@ -400,8 +400,8 @@ class Arm
     loadcell.calculateZeroOffset(50);
     delay(500);
 
-    allAttach();
-    allHome();
+    //allAttach();
+    //allHome();
   }
 
   void allAttach(){
