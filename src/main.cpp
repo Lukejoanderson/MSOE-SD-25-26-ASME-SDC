@@ -75,23 +75,23 @@ class Steering
     float speed=sqrt(x*x+y*y);
     if (y>=0.95)
     {
-      motorL.write(1,false);
-      motorR.write(1,false);
-    }
-    else if (y<=-0.95)
-    {
       motorL.write(1,true);
       motorR.write(1,true);
     }
-    else if (x>=0.95)
+    else if (y<=-0.95)
     {
       motorL.write(1,false);
-      motorR.write(0,false);
+      motorR.write(1,false);
+    }
+    else if (x>=0.95)
+    {
+      motorL.write(1,true);
+      motorR.write(1,false);
     }
     else if (x<=-0.95)
     {
-      motorL.write(0,false);
-      motorR.write(1,false);
+      motorL.write(1,false);
+      motorR.write(1,true);
     }
     else
     {
@@ -171,11 +171,11 @@ class sorter
           RGB2HSV(RGB,HSV);
           if (HSV[0]>=70&&HSV[0]<=260&&HSV[1]>.4&&HSV[2]>.3)
           {
-            sortserv.write(130);
+            sortserv.write(135);
           }
           else
           {
-            sortserv.write(55);
+            sortserv.write(50);
           }
           delay.start();
           state=2;
