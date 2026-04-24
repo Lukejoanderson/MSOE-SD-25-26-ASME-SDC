@@ -267,20 +267,20 @@ class Arm
 
     const int shoulderServoMin = 60;
     const int shoulderServoMax = 180;
-    const int shoulderServoHome = 75; // 105
-    const int shoulderServoOffset = -2; // fix
+    const int shoulderServoHome = 75;
+    const int shoulderServoOffset = 0;
     int currShoulderServoAngle = shoulderServoHome;
 
     const int elbowServoMin = 0;
     const int elbowServoMax = 180;
     const int elbowServoHome = 60;
-    const int elbowServoOffset = -5;
+    const int elbowServoOffset = 3;
     int currElbowServoAngle = elbowServoHome;
 
     const int wristServoMin = 0;
     const int wristServoMax = 180;
     const int wristServoHome = 0;
-    const int wristServoOffset = 5;
+    const int wristServoOffset = 12;
     int currWristServoAngle = wristServoHome;
 
     const int gripperServoMin = 45;
@@ -290,33 +290,87 @@ class Arm
 
     // Gripper Stuff
     NAU7802 loadcell;
-    const int LoadCellCutoff = 2500;
-    bool attemptGripperClose = false;
-    bool gripperClosed = false;
-    unsigned long gripperCloseStart = 0;
+    const int LoadCellCutoff = 1000;
 
-    // -------- WRITE HELPERS (APPLY OFFSETS HERE ONLY) --------
+    enum GripperState {
+      GRIPPER_IDLE,
+      GRIPPER_CLOSING,
+      GRIPPER_HOLDING,
+      GRIPPER_OPENING
+    };
+
+    GripperState gripperState = GRIPPER_IDLE;
+
+    unsigned long stateStartTime = 0;
+    unsigned long lastMove = 0;
+    unsigned long lastForceRead = 0;
+    int force = 0;
+
+    // -------- Dump FSM --------
+    enum DumpState {
+      DUMP_IDLE,
+      DUMP_TWIST,
+      DUMP_ARM,
+      DUMP_WAIT_BEFORE_DUMP,
+      DUMP_DUMP,
+      DUMP_WAIT_AFTER_DUMP,
+      DUMP_RETURN_ARM,
+      DUMP_RETURN_TWIST
+    };
+
+    DumpState dumpState = DUMP_IDLE;
+
+    const int dumpShoulderAngle = 120;  // <-- set yourself
+    const int dumpElbowAngle    = 15;  // <-- set yourself
+    const int dumpTwistAngle    = twistServoHome;
+
+    int storedTwist;
+    int storedShoulder;
+    int storedElbow;
+
+    unsigned long dumpTimer = 0;
+    unsigned long dumpLastMove = 0;
+    const int dumpMoveDelay = 50;
+
+    int lastTwist = -999;
+    int lastShoulder = -999;
+    int lastElbow = -999;
+    int lastWrist = -999;
+    int lastGripper = -999;
+
     void writeTwist(int angle){
       int corrected = constrain(angle, twistServoMin, twistServoMax);
-      twistServo.write(corrected);
+      if (abs(corrected - lastTwist) > 0){
+        twistServo.write(corrected);
+        lastTwist = corrected;
+      }
       currTwistServoAngle = angle;
     }
 
     void writeShoulder(int angle){
       int corrected = constrain(angle + shoulderServoOffset, shoulderServoMin, shoulderServoMax);
-      shoulderServo.write(corrected);
+      if (abs(corrected - lastShoulder) > 0){
+        shoulderServo.write(corrected);
+        lastShoulder = corrected;
+      }
       currShoulderServoAngle = angle;
     }
 
     void writeElbow(int angle){
       int corrected = constrain(angle + elbowServoOffset, elbowServoMin, elbowServoMax);
-      elbowServo.write(corrected);
+      if (abs(corrected - lastElbow) > 0){
+        elbowServo.write(corrected);
+        lastElbow = corrected;
+      }
       currElbowServoAngle = angle;
     }
 
     void writeWrist(int angle){
       int corrected = constrain(angle + wristServoOffset, wristServoMin, wristServoMax);
-      wristServo.write(corrected);
+      if (abs(corrected - lastWrist) > 0){
+        wristServo.write(corrected);
+        lastWrist = corrected;
+      }
       currWristServoAngle = angle;
     }
 
@@ -324,9 +378,7 @@ class Arm
   Arm(){}
 
   void setup(){
-    // Load Cell setup
     Serial.println("Waiting for Load Cell! ");
-
     unsigned long wait = millis();
     while (!loadcell.begin() && (millis() - wait) < 5000) {
       Serial.print(".");
@@ -344,12 +396,12 @@ class Arm
     loadcell.setSampleRate(10);
     loadcell.setGain(1);
     loadcell.calibrateAFE();
-    delay(500);
+    delay(1000);
     loadcell.calculateZeroOffset(50);
     delay(500);
 
-    allAttach();
-    allHome();
+    //allAttach();
+    //allHome();
   }
 
   void allAttach(){
@@ -368,11 +420,26 @@ class Arm
     gripperServo.write(gripperServoHome);
   }
 
+  void startDump(){
+    Serial.println("START DUMP CALLED");
+
+    if (gripperState != GRIPPER_HOLDING) return;
+    if (dumpState != DUMP_IDLE) return;
+
+    Serial.println("DUMP STARTED");
+
+    storedTwist = currTwistServoAngle;
+    storedShoulder = currShoulderServoAngle;
+    storedElbow = currElbowServoAngle;
+
+    dumpState = DUMP_TWIST;
+  }
+
   int readForce(){
     int32_t reading = loadcell.getReading() - loadcell.getZeroOffset();
 
     static unsigned long lastPrint = 0;
-    if (millis() - lastPrint >= 250) {  // 250 ms = 0.25 sec
+    if (millis() - lastPrint >= 250) {
       Serial.print("Load Cell Reading: ");
       Serial.println(reading);
       lastPrint = millis();
@@ -381,69 +448,192 @@ class Arm
     return reading;
   }
 
-
   void updateArm(){
 
-    // -------- Wrist leveling --------
     const int WRIST_LEVEL_CONST = -(shoulderServoHome + elbowServoHome);
 
-    int desiredWristAngle = WRIST_LEVEL_CONST + currShoulderServoAngle + currElbowServoAngle;
+    int desiredWristAngle = WRIST_LEVEL_CONST + (currShoulderServoAngle+shoulderServoOffset) + (currElbowServoAngle+elbowServoOffset);
     desiredWristAngle = constrain(desiredWristAngle, wristServoMin, wristServoMax);
 
-    writeWrist(desiredWristAngle);
-
-    // -------- Gripper logic --------
-    static unsigned long lastMove = 0;
-
-    if (!attemptGripperClose) return;
-    if (gripperClosed) return;
-
-    if (gripperCloseStart == 0){
-      gripperCloseStart = millis();
+    if (dumpState == DUMP_IDLE){
+      writeWrist(desiredWristAngle);
     }
 
-    static unsigned long lastForceRead = 0;
-    int force = 0;
+    // -------- Dump FSM --------
+
+    switch (dumpState)
+    {
+      case DUMP_IDLE:
+        break;
+
+      case DUMP_TWIST:
+        if (millis() - dumpLastMove > dumpMoveDelay){
+          if (currTwistServoAngle != dumpTwistAngle){
+            int dir = (dumpTwistAngle > currTwistServoAngle) ? 1 : -1;
+            writeTwist(currTwistServoAngle + dir);
+          } else {
+            dumpState = DUMP_ARM;
+          }
+          dumpLastMove = millis();
+        }
+        break;
+
+      case DUMP_ARM:
+        if (millis() - dumpLastMove > dumpMoveDelay){
+          bool done = true;
+
+          if (currShoulderServoAngle != dumpShoulderAngle){
+            int dir = (dumpShoulderAngle > currShoulderServoAngle) ? 1 : -1;
+            writeShoulder(currShoulderServoAngle + dir);
+            done = false;
+          }
+
+          if (currElbowServoAngle != dumpElbowAngle){
+            int dir = (dumpElbowAngle > currElbowServoAngle) ? 1 : -1;
+            writeElbow(currElbowServoAngle + dir);
+            done = false;
+          }
+
+          if (done){
+            dumpState = DUMP_WAIT_BEFORE_DUMP;
+            dumpTimer = millis();
+          }
+
+          dumpLastMove = millis();
+        }
+        break;
+
+      case DUMP_WAIT_BEFORE_DUMP:
+        if (millis() - dumpTimer > 1000){
+          dumpState = DUMP_DUMP;
+        }
+        break;
+
+      case DUMP_DUMP:
+        // Move wrist to dump (OVERRIDE leveling)
+        writeWrist(120);  // <-- TUNE THIS FOR DUMP
+        dumpTimer = millis();
+        dumpState = DUMP_WAIT_AFTER_DUMP;
+        break;
+
+      case DUMP_WAIT_AFTER_DUMP:
+        if (millis() - dumpTimer > 1000){
+          writeWrist(desiredWristAngle);
+          dumpState = DUMP_RETURN_ARM;
+        }
+        break;
+
+      case DUMP_RETURN_ARM:
+        if (millis() - dumpLastMove > dumpMoveDelay){
+          bool done = true;
+
+          if (currShoulderServoAngle != storedShoulder){
+            int dir = (storedShoulder > currShoulderServoAngle) ? 1 : -1;
+            writeShoulder(currShoulderServoAngle + dir);
+            done = false;
+          }
+
+          if (currElbowServoAngle != storedElbow){
+            int dir = (storedElbow > currElbowServoAngle) ? 1 : -1;
+            writeElbow(currElbowServoAngle + dir);
+            done = false;
+          }
+
+          if (done){
+            dumpState = DUMP_RETURN_TWIST;
+          }
+
+          dumpLastMove = millis();
+        }
+        break;
+
+      case DUMP_RETURN_TWIST:
+        if (millis() - dumpLastMove > dumpMoveDelay){
+          if (currTwistServoAngle != storedTwist){
+            int dir = (storedTwist > currTwistServoAngle) ? 1 : -1;
+            writeTwist(currTwistServoAngle + dir);
+          } else {
+            dumpState = DUMP_IDLE;
+          }
+          dumpLastMove = millis();
+        }
+        break;
+    }
+
+    // -------- Gripper FSM --------
 
     if (millis() - lastForceRead > 50){
       force = readForce();
       lastForceRead = millis();
     }
 
-    if (force > LoadCellCutoff){
-      attemptGripperClose = false;
-      gripperClosed = true;
-      gripperCloseStart = 0;
-      return;
-    }
+    switch (gripperState)
+    {
+      case GRIPPER_IDLE:
+        // Do nothing, gripper is open
+        break;
 
-    if (millis() - gripperCloseStart > 2000){
-      attemptGripperClose = false;
-      gripperClosed = false;
-      gripperCloseStart = 0;
-      currGripperServoAngle = gripperServoHome;
-      gripperServo.write(currGripperServoAngle);
-      return;
-    }
+      case GRIPPER_CLOSING:
+        if (stateStartTime == 0) stateStartTime = millis();
 
-    if (millis() - lastMove > 40){
-      currGripperServoAngle += 1;
-      currGripperServoAngle = constrain(currGripperServoAngle, gripperServoMin, gripperServoMax);
-      gripperServo.write(currGripperServoAngle);
-      lastMove = millis();
+        // Stop if force reached
+        if (force > LoadCellCutoff){
+          gripperState = GRIPPER_HOLDING;
+          stateStartTime = 0;
+          break;
+        }
+
+        // Timeout safety
+        if (millis() - stateStartTime > 5000){
+          gripperState = GRIPPER_OPENING;
+          stateStartTime = 0;
+          break;
+        }
+
+        // Move inward
+        if (millis() - lastMove > 40){
+          currGripperServoAngle += 1;
+          currGripperServoAngle = constrain(currGripperServoAngle, gripperServoMin, gripperServoMax);
+          gripperServo.write(currGripperServoAngle);
+          lastMove = millis();
+        }
+        break;
+
+      case GRIPPER_HOLDING:
+        // Just hold position, do nothing
+        break;
+
+      case GRIPPER_OPENING:
+        if (millis() - lastMove > 20){
+          currGripperServoAngle -= 2;
+          currGripperServoAngle = constrain(currGripperServoAngle, gripperServoMin, gripperServoMax);
+          gripperServo.write(currGripperServoAngle);
+          lastMove = millis();
+        }
+
+        // Done opening
+        if (currGripperServoAngle <= gripperServoMin){
+          gripperState = GRIPPER_IDLE;
+        }
+        break;
     }
   }
+
 
   void openGripper(){
-    attemptGripperClose = false;
-    gripperClosed = false;
-    gripperCloseStart = 0;
-    currGripperServoAngle = gripperServoHome;
-    gripperServo.write(currGripperServoAngle);
+    gripperState = GRIPPER_OPENING;
+    stateStartTime = 0;
   }
 
-  void setAttemptGripperClose(int value){
-    attemptGripperClose = value;
+  void toggleGripper(){
+    if (gripperState == GRIPPER_IDLE){
+      gripperState = GRIPPER_CLOSING;
+      stateStartTime = 0;
+    }
+    else {
+      gripperState = GRIPPER_OPENING;
+      stateStartTime = 0;
+    }
   }
 
   void incrementTwist(bool pressed, int dir){
@@ -454,9 +644,9 @@ class Arm
     if (holdStart == 0) { holdStart = millis(); }
 
     unsigned long holdTime = millis() - holdStart;
-    int step = (1 + holdTime / 300) * dir;
+    int step = (1 + holdTime / 2) * dir;
 
-    if (millis() - last > 30) {
+    if (millis() - last > 10) {
       writeTwist(currTwistServoAngle + step);
       last = millis();
     }
@@ -470,9 +660,9 @@ class Arm
     if (holdStart == 0) { holdStart = millis(); }
 
     unsigned long holdTime = millis() - holdStart;
-    int step = (1 + holdTime / 300) * dir;
+    int step = (1 + holdTime / 2) * dir;
 
-    if (millis() - last > 30) {
+    if (millis() - last > 10) {
       int next = currShoulderServoAngle + step;
       next = constrain(next, shoulderServoMin, shoulderServoMax);
       writeShoulder(next);
@@ -488,20 +678,17 @@ class Arm
     if (holdStart == 0) { holdStart = millis(); }
 
     unsigned long holdTime = millis() - holdStart;
-    int step = (1 + holdTime / 300) * dir;
+    int step = (1 + holdTime / 2) * dir;
 
-    if (millis() - last > 30) {
+    if (millis() - last > 10) {
       int next = currElbowServoAngle + step;
       next = constrain(next, elbowServoMin, elbowServoMax);
       writeElbow(next);
       last = millis();
     }
   }
-
-  void dump(){
-    // future implementation
-  }
 };
+
 
 
 
@@ -616,12 +803,22 @@ void setup() {
                 trashBotArm.incrementElbow(sub.toInt(),-1);
                 break;
               case 17:
-                if (sub.toInt() == 1){
-                  trashBotArm.setAttemptGripperClose(1);
+              //Serial.println("GRIPPER TOGGLE RECEIVED");
+              {
+                static bool lastState = false;
+                bool current = sub.toInt();
+
+                if (current && !lastState) {
+                  trashBotArm.toggleGripper();
                 }
-                break;
+
+                lastState = current;
+              }
+              break;
+
               case 18:
-                trashBotArm.openGripper();
+                Serial.println("DUMP BUTTON RECEIVED");
+                trashBotArm.startDump();
                 break;
               case 8:
                 if(sub.toInt())
