@@ -801,11 +801,11 @@ void setup() {
                 trashBotArm.incrementElbow(sub.toInt(),-1);
                 break;
               case 17:
+              //Serial.println("GRIPPER TOGGLE RECEIVED");
               {
                 static bool lastState = false;
                 bool current = sub.toInt();
 
-                // Rising edge detection (button press)
                 if (current && !lastState) {
                   trashBotArm.toggleGripper();
                 }
