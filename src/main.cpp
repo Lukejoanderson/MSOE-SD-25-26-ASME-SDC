@@ -513,7 +513,8 @@ Motor RightMotor(15,33,true);
 Steering Drivebase(LeftMotor,RightMotor);
 sorter sort;
 timer looptime;
-
+timer ddt;
+bool up=false;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //for debug
@@ -528,7 +529,8 @@ void setup() {
   gate.attach(13);
   dump.attach(12);
   gate.write(90);
-  dump.write(0);
+  dump.write(30);
+  ddt.start();
   //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
 
@@ -624,12 +626,23 @@ void setup() {
               case 8:
                 if(sub.toInt())
                 {
-                  dump.write(55);
+                  dump.attach(12);
+                  dump.write(80);
                   sort.active=false;
+                  up=true;
                 }
                 else
                 {
-                  dump.write(0);
+                  if(up)
+                  {
+                    dump.write(30);
+                    ddt.start();
+                  }
+                  else if (ddt.gettime()>=100)
+                  {
+                    dump.detach();
+                  }
+                  
                 }
               break;
               case 9:
