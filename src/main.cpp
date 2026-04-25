@@ -718,6 +718,8 @@ void setup() {
   gate.write(90);
   dump.write(30);
   ddt.start();
+  delay(100);
+  dump.detach();
   //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
 
