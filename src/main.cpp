@@ -199,11 +199,11 @@ class sorter
       delay.start();
       if(overrideT)
       {
-        sortserv.write(55);
+        sortserv.write(50);
       }
       else if (overrideR)
       {
-        sortserv.write(130);
+        sortserv.write(135);
       }
       else
       {
@@ -735,7 +735,7 @@ void setup() {
   gate.write(90);
   dump.write(5);
   ddt.start();
-  delay(500);
+  delay(100);
   dump.detach();
   //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
@@ -843,7 +843,7 @@ void setup() {
                 if(sub.toInt())
                 {
                   dump.attach(12);
-                  dump.write(55);
+                  dump.write(75);
                   sort.active=false;
                   up=true;
                 }
@@ -854,7 +854,7 @@ void setup() {
                     dump.write(5);
                     ddt.start();
                   }
-                  else if (ddt.gettime()>=500)
+                  else if (ddt.gettime()>100)
                   {
                     dump.detach();
                   }
