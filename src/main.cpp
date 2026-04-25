@@ -320,8 +320,8 @@ class Arm
 
     DumpState dumpState = DUMP_IDLE;
 
-    const int dumpShoulderAngle = 120;  // <-- set yourself
-    const int dumpElbowAngle    = 15;  // <-- set yourself
+    const int dumpShoulderAngle = 115;  // <-- set yourself
+    const int dumpElbowAngle    = 0;  // <-- set yourself
     const int dumpTwistAngle    = twistServoHome;
 
     int storedTwist;
@@ -330,7 +330,11 @@ class Arm
 
     unsigned long dumpTimer = 0;
     unsigned long dumpLastMove = 0;
-    const int dumpMoveDelay = 50;
+    const int dumpMoveDelay = 10;
+    unsigned long lastWristUpdate = 0;
+    const int wristStepDelay = 15;
+    const int wristStepSize = 1;  
+    const int targetWristAngle = 120;
 
     int lastTwist = -999;
     int lastShoulder = -999;
@@ -420,13 +424,15 @@ class Arm
     gripperServo.write(gripperServoHome);
   }
 
-  void startDump(){
-    Serial.println("START DUMP CALLED");
+  void startDump(bool button){
+    //Serial.println("START DUMP CALLED");
 
+    if (!button) return;
     if (gripperState != GRIPPER_HOLDING) return;
     if (dumpState != DUMP_IDLE) return;
 
-    Serial.println("DUMP STARTED");
+
+    //Serial.println("DUMP STARTED");
 
     storedTwist = currTwistServoAngle;
     storedShoulder = currShoulderServoAngle;
@@ -455,7 +461,7 @@ class Arm
     int desiredWristAngle = WRIST_LEVEL_CONST + (currShoulderServoAngle+shoulderServoOffset) + (currElbowServoAngle+elbowServoOffset);
     desiredWristAngle = constrain(desiredWristAngle, wristServoMin, wristServoMax);
 
-    if (dumpState == DUMP_IDLE){
+    if (dumpState != DUMP_DUMP){
       writeWrist(desiredWristAngle);
     }
 
@@ -510,10 +516,24 @@ class Arm
         break;
 
       case DUMP_DUMP:
-        // Move wrist to dump (OVERRIDE leveling)
-        writeWrist(120);  // <-- TUNE THIS FOR DUMP
-        dumpTimer = millis();
-        dumpState = DUMP_WAIT_AFTER_DUMP;
+        if (millis() - lastWristUpdate >= wristStepDelay) {
+          lastWristUpdate = millis();
+
+          if (currWristServoAngle < targetWristAngle) {
+            currWristServoAngle += wristStepSize;
+            writeWrist(currWristServoAngle);
+          } 
+          else if (currWristServoAngle > targetWristAngle) {
+            currWristServoAngle -= wristStepSize;
+            writeWrist(currWristServoAngle);
+          }
+
+          // Check if we've reached target
+          if (currWristServoAngle == targetWristAngle) {
+            dumpTimer = millis();
+            dumpState = DUMP_WAIT_AFTER_DUMP;
+          }
+        }
         break;
 
       case DUMP_WAIT_AFTER_DUMP:
@@ -562,11 +582,6 @@ class Arm
 
     // -------- Gripper FSM --------
 
-    if (millis() - lastForceRead > 50){
-      force = readForce();
-      lastForceRead = millis();
-    }
-
     switch (gripperState)
     {
       case GRIPPER_IDLE:
@@ -575,6 +590,8 @@ class Arm
 
       case GRIPPER_CLOSING:
         if (stateStartTime == 0) stateStartTime = millis();
+
+        force = readForce();
 
         // Stop if force reached
         if (force > LoadCellCutoff){
@@ -591,7 +608,7 @@ class Arm
         }
 
         // Move inward
-        if (millis() - lastMove > 40){
+        if (millis() - lastMove > 25){
           currGripperServoAngle += 1;
           currGripperServoAngle = constrain(currGripperServoAngle, gripperServoMin, gripperServoMax);
           gripperServo.write(currGripperServoAngle);
@@ -604,7 +621,7 @@ class Arm
         break;
 
       case GRIPPER_OPENING:
-        if (millis() - lastMove > 20){
+        if (millis() - lastMove > 10){
           currGripperServoAngle -= 2;
           currGripperServoAngle = constrain(currGripperServoAngle, gripperServoMin, gripperServoMax);
           gripperServo.write(currGripperServoAngle);
@@ -819,8 +836,8 @@ void setup() {
               break;
 
               case 18:
-                Serial.println("DUMP BUTTON RECEIVED");
-                trashBotArm.startDump();
+                //Serial.println("DUMP BUTTON RECEIVED");
+                trashBotArm.startDump(sub.toInt());
                 break;
               case 8:
                 if(sub.toInt())
