@@ -160,6 +160,8 @@ function handStart(event)
                 case "butt12":
                     butt12=true;
                     break;
+                case "butt14":
+                    butt14=true;
                 default:
                     break;
             }
@@ -252,7 +254,7 @@ function handEnd(event)
             case "butt14":
                 if(zone==endzone)
                 {
-                    butt14=!butt14;
+                    butt14=false;
                 }
                 break;
             default:
