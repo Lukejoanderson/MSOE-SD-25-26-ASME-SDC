@@ -400,8 +400,8 @@ class Arm
     loadcell.calculateZeroOffset(50);
     delay(500);
 
-    //allAttach();
-    //allHome();
+    allAttach();
+    allHome();
   }
 
   void allAttach(){
@@ -716,9 +716,9 @@ void setup() {
   gate.attach(13);
   dump.attach(12);
   gate.write(90);
-  dump.write(30);
+  dump.write(5);
   ddt.start();
-  delay(100);
+  delay(500);
   dump.detach();
   //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
@@ -834,10 +834,10 @@ void setup() {
                 {
                   if(up)
                   {
-                    dump.write(30);
+                    dump.write(5);
                     ddt.start();
                   }
-                  else if (ddt.gettime()>=100)
+                  else if (ddt.gettime()>=500)
                   {
                     dump.detach();
                   }
@@ -849,11 +849,11 @@ void setup() {
                 break;
               case 10:
               if(trash){
-                gate.write(0);
+                gate.write(125);
               }
               else if(sub.toInt())
               {
-                gate.write(180);
+                gate.write(55);
               }
               else
               {
