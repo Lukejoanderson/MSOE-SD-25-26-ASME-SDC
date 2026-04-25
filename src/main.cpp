@@ -716,7 +716,7 @@ void setup() {
   gate.attach(13);
   dump.attach(12);
   gate.write(90);
-  dump.write(30);
+  dump.write(0);
   ddt.start();
   delay(100);
   dump.detach();
@@ -826,7 +826,7 @@ void setup() {
                 if(sub.toInt())
                 {
                   dump.attach(12);
-                  dump.write(80);
+                  dump.write(55);
                   sort.active=false;
                   up=true;
                 }
@@ -834,7 +834,7 @@ void setup() {
                 {
                   if(up)
                   {
-                    dump.write(30);
+                    dump.write(0);
                     ddt.start();
                   }
                   else if (ddt.gettime()>=100)

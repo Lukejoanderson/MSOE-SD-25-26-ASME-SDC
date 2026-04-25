@@ -636,7 +636,7 @@ function respond(event)
                 Number(butt11),
                 Number(butt12),
                 Number(butt13),
-                Number(butt14)
+                Number(butt14)+','
             ].join(","));
             break;
         default:
