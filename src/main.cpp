@@ -613,7 +613,6 @@ class Arm
         // Stop if force reached
         if (force > LoadCellCutoff){
           gripperState = GRIPPER_HOLDING;
-          stateStartTime = 0;
           break;
         }
 
@@ -634,7 +633,14 @@ class Arm
         break;
 
       case GRIPPER_HOLDING:
-        // Just hold position, do nothing
+        force = readForce();
+
+        if (force < 500){
+          currGripperServoAngle += 1;
+          currGripperServoAngle = constrain(currGripperServoAngle, gripperServoMin, gripperServoMax);
+          gripperServo.write(currGripperServoAngle);
+        }
+
         break;
 
       case GRIPPER_OPENING:
