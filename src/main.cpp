@@ -313,6 +313,7 @@ class Arm
       DUMP_ARM,
       DUMP_WAIT_BEFORE_DUMP,
       DUMP_DUMP,
+      DUMP_RETURN_WRIST,
       DUMP_WAIT_AFTER_DUMP,
       DUMP_RETURN_ARM,
       DUMP_RETURN_TWIST
@@ -334,7 +335,7 @@ class Arm
     unsigned long lastWristUpdate = 0;
     const int wristStepDelay = 15;
     const int wristStepSize = 1;  
-    const int targetWristAngle = 120;
+    const int targetWristAngle = 135;
 
     int lastTwist = -999;
     int lastShoulder = -999;
@@ -461,7 +462,7 @@ class Arm
     int desiredWristAngle = WRIST_LEVEL_CONST + (currShoulderServoAngle+shoulderServoOffset) + (currElbowServoAngle+elbowServoOffset);
     desiredWristAngle = constrain(desiredWristAngle, wristServoMin, wristServoMax);
 
-    if (dumpState != DUMP_DUMP){
+    if (dumpState != DUMP_DUMP && dumpState != DUMP_RETURN_WRIST){
       writeWrist(desiredWristAngle);
     }
 
@@ -531,14 +532,30 @@ class Arm
           // Check if we've reached target
           if (currWristServoAngle == targetWristAngle) {
             dumpTimer = millis();
+            dumpState = DUMP_RETURN_WRIST;
+          }
+        }
+        break;
+
+      case DUMP_RETURN_WRIST:
+        if (millis() - lastWristUpdate >= wristStepDelay) {
+          lastWristUpdate = millis();
+
+          if (currWristServoAngle > desiredWristAngle) {
+            currWristServoAngle -= wristStepSize;
+            writeWrist(currWristServoAngle);
+          } else {
+            currWristServoAngle = desiredWristAngle;
+            writeWrist(currWristServoAngle);
+
             dumpState = DUMP_WAIT_AFTER_DUMP;
+            dumpTimer = millis();
           }
         }
         break;
 
       case DUMP_WAIT_AFTER_DUMP:
         if (millis() - dumpTimer > 1000){
-          writeWrist(desiredWristAngle);
           dumpState = DUMP_RETURN_ARM;
         }
         break;
@@ -636,7 +653,6 @@ class Arm
     }
   }
 
-
   void openGripper(){
     gripperState = GRIPPER_OPENING;
     stateStartTime = 0;
@@ -706,6 +722,70 @@ class Arm
   }
 };
 
+class DumpSystem
+{
+  private:
+    Servo dumpServo;
+    Servo gateServo;
+
+    // Dump positions
+    const int dumpBottom = 5;
+    const int dumpTop = 75;
+
+    // Gate positions
+    const int gateHome = 90;
+    const int gateLeft = 55;
+    const int gateRight = 125;
+
+
+  public:
+
+    void setup(int dumpPin, int gatePin)
+    {
+      dumpServo.attach(dumpPin);
+      gateServo.attach(gatePin);
+
+      dumpServo.write(dumpBottom);
+      gateServo.write(gateHome);
+    }
+
+    enum GatePosition {
+      GATE_HOME,
+      GATE_LEFT,
+      GATE_RIGHT
+    };
+
+    GatePosition gatePos = GATE_HOME;
+
+    // ---------------- CONTROL API ----------------
+
+    void setGate(GatePosition pos){
+      gatePos = pos;
+
+      switch (gatePos){
+        case GATE_HOME:
+          gateServo.write(gateHome);
+          break;
+
+        case GATE_LEFT:
+          gateServo.write(gateLeft);
+          break;
+
+        case GATE_RIGHT:
+          gateServo.write(gateRight);
+          break;
+      }
+    }
+
+    void setDump(bool open)
+    {
+      if (open)
+        dumpServo.write(dumpTop);
+      else
+        dumpServo.write(dumpBottom);
+    }
+};
+
 
 
 
@@ -718,6 +798,8 @@ Steering Drivebase(LeftMotor,RightMotor);
 sorter sort;
 timer looptime;
 timer ddt;
+DumpSystem dumpSystem;
+
 bool up=false;
 void setup() {
   // put your setup code here, to run once:
@@ -726,17 +808,12 @@ void setup() {
 
   Wire.begin();
   trashBotArm.setup();
+  dumpSystem.setup(12, 13);
 
   apds.begin();
   apds.enableColor();
   apds.enableProximity();
-  gate.attach(13);
-  dump.attach(12);
-  gate.write(90);
-  dump.write(5);
-  ddt.start();
-  delay(100);
-  dump.detach();
+
   //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
 
@@ -840,43 +917,22 @@ void setup() {
                 trashBotArm.startDump(sub.toInt());
                 break;
               case 8:
-                if(sub.toInt())
-                {
-                  dump.attach(12);
-                  dump.write(75);
-                  sort.active=false;
-                  up=true;
-                }
-                else
-                {
-                  if(up)
-                  {
-                    dump.write(5);
-                    ddt.start();
-                  }
-                  else if (ddt.gettime()>100)
-                  {
-                    dump.detach();
-                  }
-                  
-                }
-              break;
+                dumpSystem.setDump(sub.toInt());
+                break;
               case 9:
                 trash=sub.toInt();
                 break;
               case 10:
-              if(trash){
-                gate.write(125);
-              }
-              else if(sub.toInt())
-              {
-                gate.write(55);
-              }
-              else
-              {
-                gate.write(90);
-              }
-              break;
+                if(trash){
+                  dumpSystem.setGate(DumpSystem::GATE_RIGHT);
+                }
+                else if(sub.toInt()){
+                  dumpSystem.setGate(DumpSystem::GATE_LEFT);
+                }
+                else{
+                  dumpSystem.setGate(DumpSystem::GATE_HOME);
+                }
+                break;
               default:
               break;
             }
@@ -903,6 +959,7 @@ void loop() {
   }
   sort.update();
   trashBotArm.updateArm();
+
   //trashBotArm.readForce();
   //probably should do some more smart stuff here (proper timer stuff), this is probably where the sorting code is going to go. Also maybe if we need to do motion smoothing for the arm servos.
 }
