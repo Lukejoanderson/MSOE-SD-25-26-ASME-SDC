@@ -33,6 +33,17 @@ var butt12=false;
 var butt13=false;
 var butt14=false;
 var connected=false;
+var warn=false;
+warnTime=setTimeout(Warn(),500)
+function Warn()
+{
+    warn=true;
+    if (fullscreen)
+    {
+    clearCanv();
+    drawDisplay();
+    }
+}
 window.addEventListener("load",onLoad);
 document.addEventListener("fullscreenchange",swap);
 document.addEventListener("touchstart",handStart);
@@ -130,6 +141,11 @@ function drawBackground()
     {
         cur.fillStyle = "green";
         cur.strokeStyle="green";
+        if(warn)
+        {
+            cur.fillstyle="yellow";
+            cur.strokeStyle="yellow";
+        }
     }
     else
     {
@@ -654,6 +670,9 @@ function respond(event)
     switch (event.data)
     {
         case "ready":
+            warn=false;
+            clearTimeout(warnTime)
+            warnTime=setTimeout(Warn(),100);
             websocket.send([
                 joyPos[0],
                 joyPos[1],

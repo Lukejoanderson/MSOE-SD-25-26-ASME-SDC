@@ -171,11 +171,11 @@ class sorter
           RGB2HSV(RGB,HSV);
           if (HSV[0]>=70&&HSV[0]<=260&&HSV[1]>.4&&HSV[2]>.3)
           {
-            sortserv.write(135);
+            sortserv.write(50);
           }
           else
           {
-            sortserv.write(50);
+            sortserv.write(135);
           }
           delay.start();
           state=2;
@@ -199,11 +199,11 @@ class sorter
       delay.start();
       if(overrideT)
       {
-        sortserv.write(50);
+        sortserv.write(135);
       }
       else if (overrideR)
       {
-        sortserv.write(135);
+        sortserv.write(50);
       }
       else
       {
@@ -729,24 +729,31 @@ class DumpSystem
     Servo gateServo;
 
     // Dump positions
-    const int dumpBottom = 5;
+    const int dumpBottom = 3;
     const int dumpTop = 75;
 
     // Gate positions
     const int gateHome = 90;
-    const int gateLeft = 55;
-    const int gateRight = 125;
+    const int gateLeft = 50;
+    const int gateRight = 130;
 
 
   public:
-
+    int DP;
+    int GP;
+    bool timerStart=false;
+    timer dumpTime;
     void setup(int dumpPin, int gatePin)
     {
       dumpServo.attach(dumpPin);
       gateServo.attach(gatePin);
+      DP=dumpPin;
+      GP=gatePin;
 
       dumpServo.write(dumpBottom);
       gateServo.write(gateHome);
+      delay(250);
+      dumpServo.detach();
     }
 
     enum GatePosition {
@@ -780,9 +787,27 @@ class DumpSystem
     void setDump(bool open)
     {
       if (open)
+      {
+        dumpServo.attach(DP);
         dumpServo.write(dumpTop);
+        timerStart=false;
+      }
       else
-        dumpServo.write(dumpBottom);
+      {
+        if(timerStart&&dumpTime.gettime()>=250)
+        {
+          dumpServo.detach();
+        }
+        else
+        {
+          dumpServo.write(dumpBottom);
+          if(!timerStart)
+          {
+            dumpTime.start();
+            timerStart=true;
+          }
+        }
+      }
     }
 };
 
@@ -881,10 +906,10 @@ void setup() {
                 sort.overrideT=sub.toInt();
                 break;
               case 14:
-                trashBotArm.incrementTwist(sub.toInt(),1);
+                trashBotArm.incrementTwist(sub.toInt(),-1);
                 break;
               case 11:
-                trashBotArm.incrementTwist(sub.toInt(),-1);
+                trashBotArm.incrementTwist(sub.toInt(),1);
                 break;
               case 15:
                 trashBotArm.incrementShoulder(sub.toInt(),1);
