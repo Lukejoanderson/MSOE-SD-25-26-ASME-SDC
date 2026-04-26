@@ -154,14 +154,14 @@ class sorter
       {
       case 0:
         sortserv.write(90);
-        if(apds.readProximity()>25&&delay.gettime()>250)
+        if(apds.readProximity()>7&&delay.gettime()>250)
         {
           state=1;
           delay.start();
         }
         break;
       case 1:
-        if(delay.gettime()>=250&&apds.readProximity()>25&&apds.colorDataReady())
+        if(delay.gettime()>=250&&apds.readProximity()>7&&apds.colorDataReady())
         {
           uint16_t r, g, b, c;
           apds.getColorData(&r, &g, &b, &c);
@@ -842,8 +842,22 @@ void setup() {
   dumpSystem.setup(12, 13);
 
   apds.begin();
-  apds.enableColor();
-  apds.enableProximity();
+      Serial.println("Waiting for color! ");
+    unsigned long wait = millis();
+    while (!apds.begin() && (millis() - wait) < 5000) {
+      Serial.print(".");
+      delay(100);
+    }
+
+    Serial.println();
+    if (millis() - wait >= 5000) {
+        Serial.println("Color FAILED to connect.");
+    } else {
+        Serial.println("Color Connected!");
+        apds.enableColor();
+        apds.enableProximity();
+    }
+
 
   //WiFi.softAPConfig(local_IP,gateway,subnet); this breaks async for some reason.
   WiFi.softAP(WifiName,Pword);
