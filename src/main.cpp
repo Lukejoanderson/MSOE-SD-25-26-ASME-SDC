@@ -321,7 +321,7 @@ class Arm
 
     DumpState dumpState = DUMP_IDLE;
 
-    const int dumpShoulderAngle = 115;  // <-- set yourself
+    const int dumpShoulderAngle = 120;  // <-- set yourself
     const int dumpElbowAngle    = 0;  // <-- set yourself
     const int dumpTwistAngle    = twistServoHome;
 
@@ -410,6 +410,12 @@ class Arm
   }
 
   void allAttach(){
+    twistServo.detach();
+    shoulderServo.detach();
+    elbowServo.detach();
+    wristServo.detach();
+    gripperServo.detach();
+
     twistServo.attach(twistServoPin);
     shoulderServo.attach(shoulderServoPin);
     elbowServo.attach(elbowServoPin);
@@ -728,6 +734,9 @@ class Arm
   }
 };
 
+Bot trashBot;
+Arm trashBotArm;
+
 class DumpSystem
 {
   private:
@@ -797,6 +806,7 @@ class DumpSystem
         dumpServo.attach(DP);
         dumpServo.write(dumpTop);
         timerStart=false;
+        trashBotArm.allAttach();
       }
       else
       {
@@ -817,12 +827,6 @@ class DumpSystem
     }
 };
 
-
-
-
-
-Bot trashBot;
-Arm trashBotArm;
 Motor LeftMotor(14,32,true);
 Motor RightMotor(15,33,true);
 Steering Drivebase(LeftMotor,RightMotor);
