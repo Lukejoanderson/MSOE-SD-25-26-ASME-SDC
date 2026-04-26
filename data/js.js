@@ -53,10 +53,11 @@ function onLoad(event)
     cur=canvas.getContext("2d");
     websocket.addEventListener("message",respond)
     websocket.addEventListener("open", (event) => {
-    connected=true
-    websocket.addEventListener("close",(event)=>{console.log("lost")});
+    connected=true;
+    if (fullscreen)
+    {
     clearCanv();
-    drawDisplay();});
+    drawDisplay();}});
     drawStart();
 }
 
@@ -67,9 +68,11 @@ function recon(){
         websocket=new WebSocket(gateway);
         websocket.addEventListener("message",respond)
         websocket.addEventListener("open", (event) => {
-        connected=true
+        connected=true;
+        if (fullscreen)
+        {
         clearCanv();
-        drawDisplay();});
+        drawDisplay();}});
         connected=false;
         clearCanv();
         drawDisplay();
