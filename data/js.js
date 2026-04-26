@@ -32,7 +32,7 @@ var butt11=false;
 var butt12=false;
 var butt13=false;
 var butt14=false;
-
+var connected=false;
 window.addEventListener("load",onLoad);
 document.addEventListener("fullscreenchange",swap);
 document.addEventListener("touchstart",handStart);
@@ -51,12 +51,31 @@ function onLoad(event)
     canvas.width=width;
     canvas.height=height;
     cur=canvas.getContext("2d");
-    drawStart();
     websocket.addEventListener("message",respond)
+    websocket.addEventListener("open", (event) => {
+    connected=true
+    websocket.addEventListener("close",(event)=>{console.log("lost")});
+    clearCanv();
+    drawDisplay();});
+    drawStart();
 }
 
-
-
+function recon(){
+    if (websocket.readyState==3||websocket==null)
+    {
+        websocket=null;
+        websocket=new WebSocket(gateway);
+        websocket.addEventListener("message",respond)
+        websocket.addEventListener("open", (event) => {
+        connected=true
+        clearCanv();
+        drawDisplay();});
+        connected=false;
+        clearCanv();
+        drawDisplay();
+    }
+}
+setInterval(recon,500);
 /*document.onclick=function(){
     
     //websocket.send(1);
@@ -103,6 +122,19 @@ function drawBackground()
     // cur.moveTo(0,height/2);
     // cur.lineTo(width,height/2);
     cur.stroke();
+    cur.beginPath();
+    if(connected)
+    {
+        cur.fillStyle = "green";
+        cur.strokeStyle="green";
+    }
+    else
+    {
+        cur.fillStyle = "red";
+        cur.strokeStyle="red";
+    }
+    cur.arc(0,0,circRad/3,circRad,0,2*Math.PI);
+    cur.fill();
 }
 
 function drawStart(event)
